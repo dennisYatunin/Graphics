@@ -19,7 +19,10 @@ void add_point(point_matrix pm, uint32_t x, uint32_t y, uint32_t z) {
 	size_t size = pm->size;
 	size_t capacity = pm->points->cols;
 	if (size == capacity) {
-		fprintf(stderr, "Point Matrix Error: num elements exceeds capacity\n");
+		fprintf(
+			stderr,
+			"Point Matrix Error: number of elements exceeds capacity\n"
+			);
 		exit(EXIT_FAILURE);
 	}
 	double *data = pm->points->data;
@@ -45,14 +48,14 @@ void draw_line(
 	uint32_t x1, uint32_t y1,
 	uint32_t value
 	) {
-	uint32_t dx = abs(x1 - x0);
-	uint32_t dy = abs(y1 - y0);
+	int32_t dx = abs(x1 - x0);
+	int32_t dy = abs(y1 - y0);
 
-	uint32_t x_step = x0 < x1 ? 1 : -1;
-	uint32_t y_step = y0 < y1 ? 1 : -1;
+	int32_t x_step = x0 < x1 ? 1 : -1;
+	int32_t y_step = y0 < y1 ? 1 : -1;
 
-	uint32_t error = (dx > dy ? dx : -dy) / 2;
-	uint32_t original_error;
+	int32_t error = (dx > dy ? dx : -dy) / 2;
+	int32_t original_error;
 
 	while (1) {
 		plot(s, x0, y0, value);
@@ -74,7 +77,10 @@ void draw_line(
 void draw_lines(point_matrix pm, screen s) {
 	size_t size = pm->size;
 	if (size % 2 == 1) {
-		fprintf(stderr, "Draw Lines Error: point matrix has unpaired point\n");
+		fprintf(
+			stderr,
+			"Draw Lines Error: point matrix has unpaired point\n"
+			);
 		exit(EXIT_FAILURE);
 	}
 	size_t capacity = pm->points->cols;
@@ -83,8 +89,10 @@ void draw_lines(point_matrix pm, screen s) {
 	while (counter < size) {
 		draw_line(
 			s,
-			round(data[counter]), round(data[capacity + counter]),
-			round(data[counter + 1]), round(data[capacity + counter + 1]),
+			(uint32_t)(data[counter] + 0.5),
+			(uint32_t)(data[capacity + counter] + 0.5),
+			(uint32_t)(data[counter + 1] + 0.5),
+			(uint32_t)(data[capacity + counter + 1] + 0.5),
 			rgb(255, 255, 255)
 			);
 		counter += 2;

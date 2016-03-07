@@ -12,7 +12,7 @@ uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
 
 screen make_screen(size_t width, size_t height) {
 	if ((uint64_t)width * height > SIZE_MAX) {
-		fprintf(stderr, "Screen Error: num elements exceeds SIZE_MAX\n");
+		fprintf(stderr, "Screen Error: number of pixels exceeds SIZE_MAX\n");
 		exit(EXIT_FAILURE);
 	}
 	screen s = (screen) malloc(sizeof(struct screen_struct));

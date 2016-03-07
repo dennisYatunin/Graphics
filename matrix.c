@@ -6,7 +6,10 @@
 
 matrix make_matrix(size_t rows, size_t cols) {
 	if ((uint64_t)rows * cols > SIZE_MAX) {
-		fprintf(stderr, "Matrix Error: num elements exceeds SIZE_MAX\n");
+		fprintf(
+			stderr,
+			"Matrix Error: number of elements exceeds SIZE_MAX\n"
+			);
 		exit(EXIT_FAILURE);
 	}
 	matrix m = (matrix) malloc(sizeof(struct matrix_struct));
@@ -44,6 +47,7 @@ matrix translation_matrix(double i, double j, double k) {
 	data[7] = j;
 	data[10] = 1;
 	data[11] = k;
+	data[15] = 1;
 	return result;
 }
 
@@ -58,38 +62,38 @@ matrix scale_matrix(double sx, double sy, double sz) {
 }
 
 matrix rotation_matrix_x(double theta) {
-	theta *= 180 / PI;
+	theta *= PI / 180;
 	matrix result = make_matrix(4, 4);
 	double *data = result->data;
 	data[0] = 1;
 	data[5] = cos(theta);
-	data[6] = -sin(theta);
-	data[9] = sin(theta);
+	data[6] = sin(theta);
+	data[9] = -sin(theta);
 	data[10] = cos(theta);
 	data[15] = 1;
 	return result;
 }
 
 matrix rotation_matrix_y(double theta) {
-	theta *= 180 / PI;
+	theta *= PI / 180;
 	matrix result = make_matrix(4, 4);
 	double *data = result->data;
 	data[0] = cos(theta);
-	data[2] = -sin(theta);
+	data[2] = sin(theta);
 	data[5] = 1;
-	data[8] = sin(theta);
+	data[8] = -sin(theta);
 	data[10] = cos(theta);
 	data[15] = 1;
 	return result;
 }
 
 matrix rotation_matrix_z(double theta) {
-	theta *= 180 / PI;
+	theta *= PI / 180;
 	matrix result = make_matrix(4, 4);
 	double *data = result->data;
 	data[0] = cos(theta);
-	data[1] = -sin(theta);
-	data[4] = sin(theta);
+	data[1] = sin(theta);
+	data[4] = -sin(theta);
 	data[5] = cos(theta);
 	data[10] = 1;
 	data[15] = 1;
@@ -124,6 +128,7 @@ void matrix_print(matrix m) {
 		}
 		printf("|\n");
 	}
+	printf("\n");
 }
 
 void matrix_multiply(matrix a, matrix b) {
@@ -142,11 +147,12 @@ void matrix_multiply(matrix a, matrix b) {
 	double sum;
 	for (rowa = 0; rowa < rowsa; rowa++) {
 		for (colb = 0; colb < colsb; colb++) {
+			sum = 0;
 			for (cola = 0; cola < colsa; cola++) {
-				sum += dataa[rowa * colsa + cola] * datab[cola * colsb + colb];
+				sum +=
+				dataa[rowa * colsa + cola] * datab[cola * colsb + colb];
 			}
 			result[rowa * colsb + colb] = sum;
-			sum = 0;
 		}
 	}
 	free(datab);
