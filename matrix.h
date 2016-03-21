@@ -3,6 +3,8 @@
 #include <stdlib.h>
 
 #define PI 3.14159265
+#define BEZIER 0
+#define HERMITE 1
 
 typedef struct matrix_struct {
 	size_t rows;
@@ -31,5 +33,11 @@ double matrix_get(matrix m, size_t row, size_t col);
 void matrix_print(matrix m);
 
 void matrix_multiply(matrix a, matrix b);
+
+matrix bezier_coef_matrix();
+
+matrix hermite_coef_matrix();
+
+matrix curve_coefs(double p1x, double p1y, double p2x, double p2y, int type);
 
 #endif

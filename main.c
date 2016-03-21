@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 int main() {
-	screen s = make_screen(154, 1051);
+	screen s = make_screen(154, 551);
 	point_matrix pm = make_point_matrix(28);
 	// H
 	add_edge(pm, 4, 0, 0, 4, 50, 0);
@@ -30,7 +30,7 @@ int main() {
 	matrix T = translation_matrix(-77, 50, 0);
 	matrix_multiply(rotation_matrix_y(18), T);
 	matrix_multiply(translation_matrix(77, 0, 0), T);
-	for (counter = 0; counter < 20; counter++) {
+	for (counter = 0; counter < 10; counter++) {
 		matrix_multiply(T, pm->points);
 		draw_lines(pm, s);
 	}

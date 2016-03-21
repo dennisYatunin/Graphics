@@ -158,4 +158,59 @@ void matrix_multiply(matrix a, matrix b) {
 	free(datab);
 	b->data = result;
 	b->rows = rowsa;
+	free(dataa);
+	free(a);
+}
+
+matrix bezier_coef_matrix() {
+	matrix result = make_matrix(4, 4);
+	double *data = result->data;
+	data[0] = -1;
+	data[1] = 3;
+	data[2] = -3;
+	data[3] = 1;
+	data[4] = 3;
+	data[5] = -6;
+	data[6] = 3;
+	data[8] = -3;
+	data[9] = 3;
+	data[12] = 1;
+	return result;
+}
+
+matrix hermite_coef_matrix() {
+	matrix result = make_matrix(4, 4);
+	double *data = result->data;
+	data[0] = 2;
+	data[1] = -2;
+	data[2] = 1;
+	data[3] = 1;
+	data[4] = -3;
+	data[5] = 3;
+	data[6] = -2;
+	data[7] = -1;
+	data[10] = 1;
+	data[12] = 1;
+	return result;
+}
+
+matrix curve_coefs(double p1x, double p1y, double p2x, double p2y, int type) {
+	matrix result = make_matrix(4, 1);
+	double *data = result->data;
+	data[0] = p1x;
+	data[1] = p1y;
+	data[2] = p2x;
+	data[3] = p2y;
+	switch (type) {
+		case BEZIER:
+			matrix_multiply(bezier_coef_matrix(), result);
+			break;
+		case HERMITE:
+			matrix_multiply(hermite_coef_matrix(), result);
+			break;
+		default:
+			fprintf(stderr, "Curve Error: Unknown curve type\n");
+			exit(EXIT_FAILURE);
+	}
+	return result;
 }

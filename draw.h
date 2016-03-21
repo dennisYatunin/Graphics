@@ -10,12 +10,23 @@ typedef struct point_matrix_struct {
 
 point_matrix make_point_matrix(size_t capacity);
 
-void add_point(point_matrix pm, uint32_t x, uint32_t y, uint32_t z);
+void add_point(point_matrix pm, double x, double y, double z);
 
 void add_edge(
 	point_matrix pm,
-	uint32_t x0, uint32_t y0, uint32_t z0,
-	uint32_t x1, uint32_t y1, uint32_t z1
+	double x0, double y0, double z0,
+	double x1, double y1, double z1
+	);
+
+void add_circle(point_matrix pm, double cx, double cy, double r, double steps);
+
+void add_curve(
+	point_matrix pm,
+	double x0, double y0,
+	double x1, double y1,
+	double x2, double y2,
+	double x3, double y3,
+	double steps, int type
 	);
 
 void draw_line(
