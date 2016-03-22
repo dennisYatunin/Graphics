@@ -14,17 +14,7 @@ typedef struct matrix_struct {
 
 matrix make_matrix(size_t rows, size_t cols);
 
-matrix identity_matrix(size_t rows);
-
-matrix translation_matrix(double i, double j, double k);
-
-matrix scale_matrix(double sx, double sy, double sz);
-
-matrix rotation_matrix_x(double theta);
-
-matrix rotation_matrix_y(double theta);
-
-matrix rotation_matrix_x(double theta);
+void free_matrix(matrix m);
 
 void matrix_insert(matrix m, size_t row, size_t col, double value);
 
@@ -34,10 +24,16 @@ void matrix_print(matrix m);
 
 void matrix_multiply(matrix a, matrix b);
 
-matrix bezier_coef_matrix();
+matrix identity_matrix(size_t rows);
 
-matrix hermite_coef_matrix();
+matrix scale_matrix(double sx, double sy, double sz);
 
-matrix curve_coefs(double p1x, double p1y, double p2x, double p2y, int type);
+matrix translation_matrix(double i, double j, double k);
+
+matrix rotation_matrix_x(double theta);
+
+matrix rotation_matrix_y(double theta);
+
+matrix rotation_matrix_z(double theta);
 
 #endif

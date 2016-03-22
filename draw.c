@@ -5,9 +5,9 @@
 #include <math.h>
 
 point_matrix make_point_matrix(size_t capacity) {
-	point_matrix pm = (point_matrix)malloc(sizeof(struct point_matrix_struct));
+	point_matrix pm = (point_matrix) malloc(sizeof(struct point_matrix_struct));
 	if (pm == NULL) {
-		perror("memory allocation");
+		perror("Point Matrix error (malloc)");
 		exit(EXIT_FAILURE);
 	}
 	pm->size = 0;
@@ -18,14 +18,12 @@ point_matrix make_point_matrix(size_t capacity) {
 void add_point(point_matrix pm, double x, double y, double z) {
 	size_t size = pm->size;
 	size_t capacity = pm->points->cols;
-	if (size == capacity) {
-		fprintf(
-			stderr,
-			"Point Matrix Error: number of elements exceeds capacity\n"
-			);
-		exit(EXIT_FAILURE);
-	}
 	double *data = pm->points->data;
+	if (size == capacity) {
+		capacity *= 2;
+		pm->points->cols = capacity;
+		realloc(data, 4 * capacity * sizeof(double));
+	}
 	data[size] = x;
 	data[capacity + size] = y;
 	data[2 * capacity + size] = z;
@@ -42,13 +40,14 @@ void add_edge(
 	add_point(pm, x1, y1, z1);
 }
 
-void add_circle(point_matrix pm, double cx, double cy, double r, double steps) {
-	double t;
-	double t_inc = 1 / steps;
-	double t_max = 1 + t_inc / 2;
+void add_circle(point_matrix pm, double cx, double cy, double r, int steps) {
+	int step;
+	double t = 0.0, t_inc = 1.0 / steps;
 	double p1x = cx + r, p1y = cy, p2x, p2y;
 
-	for (t = 0; t < t_max; t += t_inc) {
+	for (step = 0; step < steps; step++) {
+		t += t_inc;
+
 		p2x = cx + r * cos(2 * PI * t);
 		p2y = cx + r * sin(2 * PI * t);
 
@@ -59,64 +58,109 @@ void add_circle(point_matrix pm, double cx, double cy, double r, double steps) {
 	}
 }
 
+void set_bezier_coefs(
+	double *array, double p1, double p2, double p3, double p4
+	) {
+	matrix factors = make_matrix(4, 4);
+	double *data = factors->data;
+	data[0] = -1;
+	data[1] = 3;
+	data[2] = -3;
+	data[3] = 1;
+	data[4] = 3;
+	data[5] = -6;
+	data[6] = 3;
+	data[8] = -3;
+	data[9] = 3;
+	data[12] = 1;
+	matrix coefs = make_matrix(4, 1);
+	data = coefs->data;
+	data[0] = p1;
+	data[1] = p2;
+	data[2] = p3;
+	data[3] = p4;
+	matrix_multiply(factors, coefs);
+	array[0] = data[0];
+	array[1] = data[1];
+	array[2] = data[2];
+	array[3] = data[3];
+	free(data);
+	free(coefs);
+}
+
+void set_hermite_coefs(
+	double *array, double p1, double r1, double p2, double r2
+	) {
+	matrix factors = make_matrix(4, 4);
+	double *data = factors->data;
+	data[0] = 2;
+	data[1] = -2;
+	data[2] = 1;
+	data[3] = 1;
+	data[4] = -3;
+	data[5] = 3;
+	data[6] = -2;
+	data[7] = -1;
+	data[10] = 1;
+	data[12] = 1;
+	matrix coefs = make_matrix(4, 1);
+	data = coefs->data;
+	data[0] = p1;
+	data[1] = r1;
+	data[2] = p2;
+	data[3] = r2;
+	matrix_multiply(factors, coefs);
+	array[0] = data[0];
+	array[1] = data[1];
+	array[2] = data[2];
+	array[3] = data[3];
+	free(data);
+	free(coefs);
+}
+
 void add_curve(
 	point_matrix pm,
 	double x0, double y0,
 	double x1, double y1,
 	double x2, double y2,
 	double x3, double y3,
-	double steps, int type
+	int steps, int type
 	) {
+	double x_coefs[4], y_coefs[4];
+
 	switch (type) {
 		case BEZIER:
-			matrix x_coefs = curve_coefs(x0, x1, x2, x3, BEZIER);
-			matrix y_coefs = curve_coefs(y0, y1, y2, y3, BEZIER);
-			double t;
-			double t_inc = 1 / steps;
-			double t_max = 1 + t_inc / 2;
-			for (t = 0; t < t_max; t += t_inc) {
-				add_edge(
-					pm,
-					x_coefs->data[0]*t*t*t + x_coefs->data[1]*t*t +
-					x_coefs->data[2]*t + x_coefs->data[3],
-					y_coefs->data[0]*t*t*t + y_coefs->data[1]*t*t +
-					y_coefs->data[2]*t + y_coefs->data[3],
-					0,
-					x_coefs->data[0]*t*t*t + x_coefs->data[1]*t*t +
-					x_coefs->data[2]*t + x_coefs->data[3],
-					y_coefs->data[0]*t*t*t + y_coefs->data[1]*t*t +
-					y_coefs->data[2]*t + y_coefs->data[3],
-					0
-					);
-			}
+			set_bezier_coefs(x_coefs, x0, x1, x2, x3);
+			set_bezier_coefs(y_coefs, y0, y1, y2, y3);
 			break;
+
 		case HERMITE:
-			matrix x_coefs = curve_coefs(x0, x1, x2, x3, HERMITE);
-			matrix y_coefs = curve_coefs(y0, y1, y2, y3, HERMITE);
-			double t;
-			double t_inc = 1 / steps;
-			double t_max = 1 + t_inc / 2;
-			for (t = 0; t < t_max; t += t_inc) {
-				add_edge(
-					pm,
-					x_coefs->data[0]*t*t*t + x_coefs->data[1]*t*t +
-					x_coefs->data[2]*t + x_coefs->data[3],
-					y_coefs->data[0]*t*t*t + y_coefs->data[1]*t*t +
-					y_coefs->data[2]*t + y_coefs->data[3],
-					0,
-					x_coefs->data[0]*t*t*t + x_coefs->data[1]*t*t +
-					x_coefs->data[2]*t + x_coefs->data[3],
-					y_coefs->data[0]*t*t*t + y_coefs->data[1]*t*t +
-					y_coefs->data[2]*t + y_coefs->data[3],
-					0
-					);
-			}
+			set_hermite_coefs(x_coefs, x0, x1, x2, x3);
+			set_hermite_coefs(y_coefs, y0, y1, y2, y3);
 			break;
+
 		default:
-			fprintf(stderr, "Curve Error: Unknown curve type\n");
+			fprintf(stderr, "Curve error: unknown curve type\n");
 			exit(EXIT_FAILURE);
 	}
+
+	int step;
+	double t = 0.0, t_inc = 1.0 / steps;
+	double p1x = x_coefs[3], p1y = y_coefs[3], p2x, p2y;
+
+	for (step = 0; step < steps; step++) {
+		t += t_inc;
+
+		p2x = ((x_coefs[0] * t + x_coefs[1]) * t + x_coefs[2]) * t + x_coefs[3];
+		p2y = ((y_coefs[0] * t + y_coefs[1]) * t + y_coefs[2]) * t + y_coefs[3];
+
+		add_edge(pm, p1x, p1y, 0, p2x, p2y, 0);
+
+		p1x = p2x;
+		p1y = p2y;
+	}
 }
+
 
 void draw_line(
 	screen s,
@@ -150,7 +194,7 @@ void draw_line(
 	}
 }
 
-void draw_lines(point_matrix pm, screen s) {
+void draw_lines(point_matrix pm, screen s, uint32_t value) {
 	size_t size = pm->size;
 	if (size % 2 == 1) {
 		fprintf(
@@ -169,7 +213,7 @@ void draw_lines(point_matrix pm, screen s) {
 			(uint32_t)(data[capacity + counter] + 0.5),
 			(uint32_t)(data[counter + 1] + 0.5),
 			(uint32_t)(data[capacity + counter + 1] + 0.5),
-			rgb(255, 255, 255)
+			value
 			);
 		counter += 2;
 	}

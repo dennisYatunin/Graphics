@@ -11,6 +11,8 @@ typedef struct screen_struct {
 
 screen make_screen(size_t width, size_t height);
 
+void free_screen(screen s);
+
 void plot(screen s, size_t x, size_t y, uint32_t value);
 
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b);

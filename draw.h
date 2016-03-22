@@ -18,7 +18,7 @@ void add_edge(
 	double x1, double y1, double z1
 	);
 
-void add_circle(point_matrix pm, double cx, double cy, double r, double steps);
+void add_circle(point_matrix pm, double cx, double cy, double r, int steps);
 
 void add_curve(
 	point_matrix pm,
@@ -26,7 +26,7 @@ void add_curve(
 	double x1, double y1,
 	double x2, double y2,
 	double x3, double y3,
-	double steps, int type
+	int steps, int type
 	);
 
 void draw_line(
@@ -36,6 +36,6 @@ void draw_line(
 	uint32_t value
 	);
 
-void draw_lines(point_matrix pm, screen s);
+void draw_lines(point_matrix pm, screen s, uint32_t value);
 
 #endif

@@ -1,6 +1,6 @@
 RESULT = main
-HEADERS = png.h screen.h draw.h matrix.h
-OBJECTS = main.o png.o screen.o draw.o matrix.o
+HEADERS = png.h screen.h draw.h matrix.h parser.h
+OBJECTS = main.o png.o screen.o draw.o matrix.o parser.o
 
 ifeq ($(OS), Windows_NT)
 	RESULT := $(RESULT).exe
@@ -21,4 +21,4 @@ clean:
 	-rm *.png
 
 run:
-	./$(RESULT)
+	./$(RESULT) script

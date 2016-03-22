@@ -12,22 +12,27 @@ uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
 
 screen make_screen(size_t width, size_t height) {
 	if ((uint64_t)width * height > SIZE_MAX) {
-		fprintf(stderr, "Screen Error: number of pixels exceeds SIZE_MAX\n");
+		fprintf(stderr, "Screen error: number of pixels exceeds SIZE_MAX\n");
 		exit(EXIT_FAILURE);
 	}
 	screen s = (screen) malloc(sizeof(struct screen_struct));
 	if (s == NULL) {
-		perror("memory allocation");
+		perror("Screen error (malloc)");
 		exit(EXIT_FAILURE);
 	}
 	s->width = width;
 	s->height = height;
 	s->data = (uint32_t *) calloc(width, height * sizeof(uint32_t));
-	if (s == NULL) {
-		perror("memory allocation");
+	if (s->data == NULL) {
+		perror("Screen error (calloc)");
 		exit(EXIT_FAILURE);
 	}
 	return s;
+}
+
+void free_screen(screen s) {
+	free(s->data);
+	free(s);
 }
 
 void plot(screen s, size_t x, size_t y, uint32_t value) {
