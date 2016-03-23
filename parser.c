@@ -28,7 +28,7 @@ void parse(const char *name) {
 
 	// Default values
 	char color_type = PNG_RGB;
-	int width = 1000, height = 1000, color = rgb(255, 255, 255), steps = 50;
+	int width = 1000, height = 1000, color = rgb(255, 255, 255), segs = 50;
 	point_matrix pm = make_point_matrix(100);
 	matrix transform = identity_matrix(4);
 
@@ -37,7 +37,6 @@ void parse(const char *name) {
 	matrix temp;
 	screen s;
 	while (fgets(line, 255, fp) != NULL) {
-		printf(":%s:\n", line);
 		if (strcmp(line, "quit\n") == 0) {
 			return;
 		}
@@ -65,7 +64,7 @@ void parse(const char *name) {
 				error_msg("expected \"PNG\" or \"PNGA\" after \"setct\"");
 			}
 		}
-		if (strcmp(line, "setcolor\n") == 0) {
+		else if (strcmp(line, "setcolor\n") == 0) {
 			if (color_type == PNG_RGB) {
 				if (
 					fgets(line, 255, fp) == NULL ||
@@ -85,18 +84,18 @@ void parse(const char *name) {
 				color = rgba(i1, i2, i3, i4);
 			}
 		}
-		if (strcmp(line, "setsteps\n") == 0) {
+		else if (strcmp(line, "setsegs\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
 				sscanf(line,"%d\n", &i1) < 1
 				) {
-				error_msg("expected steps after \"setsteps\"");
+				error_msg("expected number of segments after \"setsegs\"");
 			}
-			steps = i1;
+			segs = i1;
 		}
 		else if (strcmp(line, "display\n") == 0) {
 			s = make_screen(width, height);
-			draw_lines(pm, s, color);
+			draw_lines(pm, s);
 			display_png(s, color_type);
 			free_screen(s);
 		}
@@ -105,7 +104,7 @@ void parse(const char *name) {
 				error_msg("expected file name after \"save\"");
 			}
 			s = make_screen(width, height);
-			draw_lines(pm, s, color);
+			draw_lines(pm, s);
 			make_png(line, s, color_type);
 			free_screen(s);
 		}
@@ -113,28 +112,28 @@ void parse(const char *name) {
 			if (
 				fgets(line, 255, fp) == NULL ||
 				sscanf(
-					line,"%f %f %f %f %f %f\n",
+					line,"%lf %lf %lf %lf %lf %lf\n",
 					&d1, &d2, &d3, &d4, &d5, &d6
 					) < 6
 				) {
 				error_msg("expected x0, y0, z0, x1, y1, z1 after \"line\"");
 			}
-			add_edge(pm, d1, d2, d3, d4, d5, d6);
+			add_edge(pm, d1, d2, d3, d4, d5, d6, color);
 		}
 		else if (strcmp(line, "circle\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
-				sscanf(line,"%f %f %f\n", &d1, &d2, &d3) < 3
+				sscanf(line,"%lf %lf %lf\n", &d1, &d2, &d3) < 3
 				) {
 				error_msg("expected cx, cy, r after \"circle\"");
 			}
-			add_circle(pm, d1, d2, d3, steps);
+			add_circle(pm, d1, d2, d3, segs, color);
 		}
 		else if (strcmp(line, "hermite\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
 				sscanf(
-					line,"%f %f %f %f %f %f %f %f\n",
+					line,"%lf %lf %lf %lf %lf %lf %lf %lf\n",
 					&d1, &d2, &d3, &d4, &d5, &d6, &d7, &d8
 					) < 8
 				) {
@@ -143,13 +142,13 @@ void parse(const char *name) {
 					"\"hermite\""
 					);
 			}
-			add_curve(pm, d1, d2, d3, d4, d5, d6, d7, d8, steps, HERMITE);
+			add_curve(pm, d1, d2, d3, d4, d5, d6, d7, d8, segs, HERMIT, color);
 		}
 		else if (strcmp(line, "bezier\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
 				sscanf(
-					line,"%f %f %f %f %f %f %f %f\n",
+					line,"%lf %lf %lf %lf %lf %lf %lf %lf\n",
 					&d1, &d2, &d3, &d4, &d5, &d6, &d7, &d8
 					) < 8
 				) {
@@ -158,7 +157,7 @@ void parse(const char *name) {
 					"\"bezier\""
 					);
 			}
-			add_curve(pm, d1, d2, d3, d4, d5, d6, d7, d8, steps, BEZIER);
+			add_curve(pm, d1, d2, d3, d4, d5, d6, d7, d8, segs, BEZIER, color);
 		}
 		else if (strcmp(line, "ident\n") == 0) {
 			transform = identity_matrix(4);
@@ -166,7 +165,7 @@ void parse(const char *name) {
 		else if (strcmp(line, "scale\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
-				sscanf(line,"%f %f %f\n", &d1, &d2, &d3) < 3
+				sscanf(line,"%lf %lf %lf\n", &d1, &d2, &d3) < 3
 				) {
 				error_msg("expected sx, sy, sz after \"scale\"");
 			}
@@ -177,7 +176,7 @@ void parse(const char *name) {
 		else if (strcmp(line, "translate\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
-				sscanf(line,"%f %f %f\n", &d1, &d2, &d3) < 3
+				sscanf(line,"%lf %lf %lf\n", &d1, &d2, &d3) < 3
 				) {
 				error_msg("expected tx, ty, tz after \"translate\"");
 			}
@@ -188,7 +187,7 @@ void parse(const char *name) {
 		else if (strcmp(line, "xrotate\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
-				sscanf(line,"%f\n", &d1) < 1
+				sscanf(line,"%lf\n", &d1) < 1
 				) {
 				error_msg("expected theta after \"xrotate\"");
 			}
@@ -199,7 +198,7 @@ void parse(const char *name) {
 		else if (strcmp(line, "yrotate\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
-				sscanf(line,"%f\n", &d1) < 1
+				sscanf(line,"%lf\n", &d1) < 1
 				) {
 				error_msg("expected theta after \"yrotate\"");
 			}
@@ -210,7 +209,7 @@ void parse(const char *name) {
 		else if (strcmp(line, "zrotate\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
-				sscanf(line,"%f\n", &d1) < 1
+				sscanf(line,"%lf\n", &d1) < 1
 				) {
 				error_msg("expected theta after \"zrotate\"");
 			}
@@ -222,7 +221,9 @@ void parse(const char *name) {
 			matrix_multiply(transform, pm->points);
 		}
 		else {
-			error_msg("invalid command");
+			line[strlen(line) - 1] = '\0';
+			fprintf(stderr, "Parse error: invalid command (\"%s\")\n", line);
+			exit(EXIT_FAILURE);
 		}
 	}
 }

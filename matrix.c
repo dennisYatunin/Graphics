@@ -32,6 +32,28 @@ void free_matrix(matrix m) {
 	free(m);
 }
 
+double *expand_matrix(matrix m) {
+	size_t rows = m->rows, cols = m->cols;
+	double *old_data = m->data;
+	double *new_data = (double *) calloc(rows, 2 * cols * sizeof(double));
+	if (new_data == NULL) {
+		perror("Expand Matrix error (calloc)");
+		exit(EXIT_FAILURE);
+	}
+	double *new_data_copy = new_data;
+	int cur_col;
+	while (rows--) {
+		for (cur_col = 0; cur_col < cols; cur_col++) {
+			*new_data++ = *old_data++;
+		}
+		new_data += cols;
+	}
+	m->cols *= 2;
+	free(m->data);
+	m->data = new_data_copy;
+	return new_data_copy;
+}
+
 void matrix_insert(matrix m, size_t row, size_t col, double value) {
 	if (row >= m->rows || col >= m->cols) {
 		fprintf(stderr, "Matrix Insert error: index out of bounds\n");

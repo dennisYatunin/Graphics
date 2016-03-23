@@ -3,8 +3,6 @@
 #include <stdlib.h>
 
 #define PI 3.14159265
-#define BEZIER 0
-#define HERMITE 1
 
 typedef struct matrix_struct {
 	size_t rows;
@@ -15,6 +13,8 @@ typedef struct matrix_struct {
 matrix make_matrix(size_t rows, size_t cols);
 
 void free_matrix(matrix m);
+
+double *expand_matrix(matrix m);
 
 void matrix_insert(matrix m, size_t row, size_t col, double value);
 

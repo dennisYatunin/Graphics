@@ -1,8 +1,8 @@
+#include "png.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-#include "png.h"
 
 // A precomputed 32-bit CRC (Cyclic Redundancy Code) lookup table, used to speed
 // up the creation of a CRC checksum for each chunk in a PNG file. More
@@ -80,7 +80,7 @@ const uint32_t crc32_lookup_table[] = {
 #define IEND 0x49454E44 // hex for "IEND"
 #define IEND_CRC_C 0xAE426082 // 1's complement of the CRC checksum of "IEND"
 
-// places an integer into a file stream in big-endian format
+// places an integer into the file stream in big-endian format
 #define PUTC_INT(integer) {                                                    \
 	putc((integer) >> 24 & 0xFF, fp);                                          \
 	putc((integer) >> 16 & 0xFF, fp);                                          \
@@ -88,15 +88,14 @@ const uint32_t crc32_lookup_table[] = {
 	putc((integer) & 0xFF, fp);                                                \
 }
 
-// places a character into a file stream and updates the CRC checksum of that
-// stream
-#define PUTC_AND_CRC(character) {                                              \
-	putc(character, fp);                                                       \
-	(crc) = crc32_lookup_table[((crc) ^ (character)) & 0xFF] ^ ((crc) >> 8);   \
+// places a byte into the file stream and updates the CRC checksum
+#define PUTC_AND_CRC(byte) {                                                   \
+	putc(byte, fp);                                                            \
+	(crc) = crc32_lookup_table[((crc) ^ (byte)) & 0xFF] ^ ((crc) >> 8);        \
 }
 
-// places an integer into a file stream in big-endian format and updates the CRC
-// checksum of that stream
+// places an integer into the file stream in big-endian format and updates the
+// CRC checksum
 #define PUTC_AND_CRC_INT(integer) {                                            \
 	PUTC_AND_CRC((integer) >> 24 & 0xFF);                                      \
 	PUTC_AND_CRC((integer) >> 16 & 0xFF);                                      \
@@ -115,9 +114,9 @@ const uint32_t crc32_lookup_table[] = {
 // 0xFFFFFFFF bytes, since its length is stored in 4 bytes.)
 #define MAX_DATA_LEN 0xFFFB0008
 
-// places the header for a full deflate block into a file stream and updates the
-// CRC checksum of that stream
-#define BLOCK_HEADER(fp, crc) {                                                \
+// places the header for a full deflate block into the file stream and updates
+// the CRC checksum
+#define BLOCK_HEADER() {                                                       \
 	PUTC_AND_CRC(0);                                                           \
 	PUTC_AND_CRC(0xFF);                                                        \
 	PUTC_AND_CRC(0xFF);                                                        \
@@ -126,15 +125,16 @@ const uint32_t crc32_lookup_table[] = {
 }
 
 // places the header for the last deflate block in a PNG data chunk into a file
-// stream and updates the CRC checksum of that stream
-#define LAST_BLOCK_HEADER(fp, crc, bytes_remaining) {                          \
+// stream and updates the CRC checksum
+#define LAST_BLOCK_HEADER(bytes_remaining) {                                   \
 	PUTC_AND_CRC(1);                                                           \
-	PUTC_AND_CRC(bytes_remaining & 0xFF);                                      \
-	PUTC_AND_CRC(bytes_remaining >> 8 & 0xFF);                                 \
-	PUTC_AND_CRC((bytes_remaining ^ 0xFF) & 0xFF);                             \
-	PUTC_AND_CRC((bytes_remaining >> 8 ^ 0xFF) & 0xFF);                        \
+	PUTC_AND_CRC((bytes_remaining) & 0xFF);                                    \
+	PUTC_AND_CRC((bytes_remaining) >> 8 & 0xFF);                               \
+	PUTC_AND_CRC(((bytes_remaining) ^ 0xFF) & 0xFF);                           \
+	PUTC_AND_CRC(((bytes_remaining) >> 8 ^ 0xFF) & 0xFF);                      \
 }
 
+// places the next byte into a png data chunk with RGB color type
 #define ADD_NEXT_BYTE_RGB() {                                                  \
 	if (line_pos == max_line_pos) {                                            \
 		PUTC_AND_CRC(0);                                                       \
@@ -157,23 +157,10 @@ const uint32_t crc32_lookup_table[] = {
 	}                                                                          \
 }
 
-// places the first 8 bytes of a PNG file into a file stream
-#define PNG_SIG(fp) {                                                          \
-	putc(0x89, fp);                                                            \
-	putc('P' , fp);                                                            \
-	putc('N' , fp);                                                            \
-	putc('G' , fp);                                                            \
-	putc('\r', fp);                                                            \
-	putc('\n', fp);                                                            \
-	putc(0x1A, fp);                                                            \
-	putc('\n', fp);                                                            \
-}
-
 /* ========================================================================== */
 
 void header_chunk(
-	uint32_t width, uint32_t height, uint8_t color_type,
-	FILE *fp
+	uint32_t width, uint32_t height, uint8_t color_type, FILE *fp
 	) {
 	PUTC_INT(13); // 2 ints and 5 chars take up 13 bytes
 	PUTC_INT(IHDR);
@@ -205,15 +192,8 @@ void data_chunks_rgb(
 	uint32_t data_len = height * (max_line_pos + 1);
 	// the data transfered to the file will contain an additional 0 byte at the
 	// start of each line
-
-	if (data_len == 0) {
-		fprintf(stderr, "PNG Error: no data provided\n");
-		exit(EXIT_FAILURE);
-	}
-
 	uint32_t num_blocks = 1 + (data_len - 1) / MAX_BLOCK_LEN;
 	// ceil(data_len / MAX_BLOCK_LEN)
-
 	uint32_t chunk_len = 6 + 5 * num_blocks + data_len;
 	// 2-byte header "\x78\x01", plus a 5-byte header per deflate block, plus
 	// the remaining data, plus a 4-byte Adler-32 checksum of the remaining data
@@ -235,7 +215,7 @@ void data_chunks_rgb(
 	uint32_t block_pos, cur_byte;
 
 	while (--num_blocks) {
-		BLOCK_HEADER(fp, crc);
+		BLOCK_HEADER();
 		block_pos = MAX_BLOCK_LEN;
 		while (block_pos--) {
 			ADD_NEXT_BYTE_RGB();
@@ -243,7 +223,7 @@ void data_chunks_rgb(
 		data_len -= MAX_BLOCK_LEN;
 	}
 
-	LAST_BLOCK_HEADER(fp, crc, data_len);
+	LAST_BLOCK_HEADER(data_len);
 	while (data_len--) {
 		ADD_NEXT_BYTE_RGB();
 	}
@@ -268,12 +248,17 @@ void end_chunk(FILE *fp) {
 /* ========================================================================== */
 
 void make_png(const char *name, const screen s, char color_type) {
+	if (s->width == 0 || s->height == 0) {
+		fprintf(stderr, "PNG Error: no data provided\n");
+		exit(EXIT_FAILURE);
+	}
 	FILE *fp = fopen(name, "wb");
 	if (fp == NULL) {
 		perror("PNG error (fopen)");
 		exit(EXIT_FAILURE);
 	}
-	PNG_SIG(fp);
+	putc(0x89, fp); putc('P' , fp); putc('N' , fp); putc('G' , fp);
+	putc('\r', fp); putc('\n', fp); putc(0x1A, fp); putc('\n', fp);
 	header_chunk(s->width, s->height, color_type, fp);
 	if (color_type == PNG_RGB) {
 		data_chunks_rgb(s->width, s->height, s->data, fp);
@@ -288,7 +273,6 @@ void make_png(const char *name, const screen s, char color_type) {
 	end_chunk(fp);
 	fclose(fp);
 }
-// breaks on width = height = 38000; need to fix
 
 void display_png(const screen s, char color_type) {
 	/*char name[] = "tempPNG-XXXXXX";
@@ -299,10 +283,9 @@ void display_png(const screen s, char color_type) {
 	}*/
 	char name[] = "temp.png";
 	make_png(name, s, color_type);
-	unlink(name);
 	#ifdef OS_WINDOWS
-	if (_execl("C::\\WINDOWS\\SYSTEM32\\CMD.EXE", "cmd.exe", name) == -1) {
-		perror("Display error (_execl)");
+	if (system("temp.png; rm temp.png") == -1) {
+		perror("Display error (system)");
 		exit(EXIT_FAILURE);
 	}
 	#else
@@ -318,6 +301,9 @@ void display_png(const screen s, char color_type) {
 			exit(EXIT_FAILURE);
 		}
 	}
-	wait(&x);
+	else {
+		wait(&x);
+		remove(name);
+	}
 	#endif
 }
