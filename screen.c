@@ -35,6 +35,8 @@ void free_screen(screen s) {
 	free(s);
 }
 
-void plot(screen s, size_t x, size_t y, uint32_t value) {
-	s->data[s->width * (s->height - y - 1) + x] = value;
+void plot(screen s, int32_t x, int32_t y, uint32_t value) {
+	if (x >= 0 && x < s->width && y >= 0 && y < s->height) {
+		s->data[s->width * (s->height - y - 1) + x] = value;
+	}
 }

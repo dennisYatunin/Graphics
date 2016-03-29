@@ -2,8 +2,6 @@
 #define MATRIX_H
 #include <stdlib.h>
 
-#define PI 3.14159265
-
 typedef struct matrix_struct {
 	size_t rows;
 	size_t cols;
@@ -24,7 +22,7 @@ void matrix_print(matrix m);
 
 void matrix_multiply(matrix a, matrix b);
 
-matrix identity_matrix(size_t rows);
+matrix identity_matrix();
 
 matrix scale_matrix(double sx, double sy, double sz);
 

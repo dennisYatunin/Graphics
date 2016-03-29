@@ -11,6 +11,17 @@ typedef struct point_matrix_struct {
 
 point_matrix make_point_matrix(size_t capacity);
 
+void clear_point_matrix(point_matrix pm);
+
+void draw_line(
+	screen s,
+	int32_t x0, int32_t y0,
+	int32_t x1, int32_t y1,
+	uint32_t color
+	);
+
+void draw_lines(point_matrix pm, screen s);
+
 void add_point(point_matrix pm, double x, double y, double z);
 
 void add_edge(
@@ -26,6 +37,26 @@ void add_circle(
 	int steps, uint32_t color
 	);
 
+void add_box(
+	point_matrix pm,
+	double x, double y, double z,
+	double w, double h, double d,
+	uint32_t color
+	);
+
+void add_sphere(
+	point_matrix pm,
+	double cx, double cy, double cz,
+	double r, int steps, uint32_t color
+	);
+
+void add_torus(
+	point_matrix pm,
+	double cx, double cy, double cz,
+	double r1, double r2,
+	int steps, uint32_t color
+	);
+
 #define BEZIER 0
 #define HERMIT 1
 void add_curve(
@@ -36,14 +67,5 @@ void add_curve(
 	double x3, double y3,
 	int steps, char type, uint32_t color
 	);
-
-void draw_line(
-	screen s,
-	uint32_t x0, uint32_t y0,
-	uint32_t x1, uint32_t y1,
-	uint32_t color
-	);
-
-void draw_lines(point_matrix pm, screen s);
 
 #endif

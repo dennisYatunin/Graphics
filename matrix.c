@@ -114,14 +114,13 @@ void matrix_multiply(matrix a, matrix b) {
 	b->rows = rowsa;
 }
 
-matrix identity_matrix(size_t rows) {
-	matrix result = make_matrix(rows, rows);
+matrix identity_matrix() {
+	matrix result = make_matrix(4, 4);
 	double *data = result->data;
-	*data = 1;
-	while (--rows) {
-		data += rows + 1;
-		*data = 1;
-	}
+	data[0] = 1;
+	data[5] = 1;
+	data[10] = 1;
+	data[15] = 1;
 	return result;
 }
 
@@ -149,7 +148,7 @@ matrix translation_matrix(double i, double j, double k) {
 }
 
 matrix rotation_matrix_x(double theta) {
-	theta *= PI / 180;
+	theta *= M_PI / 180;
 	matrix result = make_matrix(4, 4);
 	double *data = result->data;
 	data[0] = 1;
@@ -162,7 +161,7 @@ matrix rotation_matrix_x(double theta) {
 }
 
 matrix rotation_matrix_y(double theta) {
-	theta *= PI / 180;
+	theta *= M_PI / 180;
 	matrix result = make_matrix(4, 4);
 	double *data = result->data;
 	data[0] = cos(theta);
@@ -175,7 +174,7 @@ matrix rotation_matrix_y(double theta) {
 }
 
 matrix rotation_matrix_z(double theta) {
-	theta *= PI / 180;
+	theta *= M_PI / 180;
 	matrix result = make_matrix(4, 4);
 	double *data = result->data;
 	data[0] = cos(theta);

@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[]) {
 	if (!--argc) {
-		printf("Usage: %s input1 [input2 input3 ...]", argv[0]);
+		printf("Usage: %s input1 [input2 input3 ...]\n", argv[0]);
 	}
 
 	else {

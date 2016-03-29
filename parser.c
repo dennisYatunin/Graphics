@@ -138,8 +138,7 @@ void parse(const char *name) {
 					) < 8
 				) {
 				error_msg(
-					"expected x0, y0, x1, y1, x2, y2, x3, y3 after "
-					"\"hermite\""
+					"expected x0, y0, x1, y1, x2, y2, x3, y3 after \"hermite\""
 					);
 			}
 			add_curve(pm, d1, d2, d3, d4, d5, d6, d7, d8, segs, HERMIT, color);
@@ -153,14 +152,46 @@ void parse(const char *name) {
 					) < 8
 				) {
 				error_msg(
-					"expected x0, y0, x1, y1, x2, y2, x3, y3 after "
-					"\"bezier\""
+					"expected x0, y0, x1, y1, x2, y2, x3, y3 after \"bezier\""
 					);
 			}
 			add_curve(pm, d1, d2, d3, d4, d5, d6, d7, d8, segs, BEZIER, color);
 		}
+		else if (strcmp(line, "box\n") == 0) {
+			if (
+				fgets(line, 255, fp) == NULL ||
+				sscanf(
+					line,"%lf %lf %lf %lf %lf %lf\n",
+					&d1, &d2, &d3, &d4, &d5, &d6
+					) < 6
+				) {
+				error_msg("expected x, y, z, h, w, d after \"box\"");
+			}
+			add_box(pm, d1, d2, d3, d4, d5, d6, color);
+		}
+		else if (strcmp(line, "sphere\n") == 0) {
+			if (
+				fgets(line, 255, fp) == NULL ||
+				sscanf(line,"%lf %lf %lf %lf\n", &d1, &d2, &d3, &d4) < 4
+				) {
+				error_msg("expected cx, cy, cz, r after \"sphere\"");
+			}
+			add_sphere(pm, d1, d2, d3, d4, segs, color);
+		}
+		else if (strcmp(line, "torus\n") == 0) {
+			if (
+				fgets(line, 255, fp) == NULL ||
+				sscanf(
+					line,"%lf %lf %lf %lf %lf\n",
+					&d1, &d2, &d3, &d4, &d5
+					) < 5
+				) {
+				error_msg("expected cx, cy, cz, r1, r2 after \"torus\"");
+			}
+			add_torus(pm, d1, d2, d3, d4, d5, segs, color);
+		}
 		else if (strcmp(line, "ident\n") == 0) {
-			transform = identity_matrix(4);
+			transform = identity_matrix();
 		}
 		else if (strcmp(line, "scale\n") == 0) {
 			if (
@@ -219,6 +250,9 @@ void parse(const char *name) {
 		}
 		else if (strcmp(line, "apply\n") == 0) {
 			matrix_multiply(transform, pm->points);
+		}
+		else if (strcmp(line, "clear\n") == 0) {
+			clear_point_matrix(pm);
 		}
 		else {
 			line[strlen(line) - 1] = '\0';
