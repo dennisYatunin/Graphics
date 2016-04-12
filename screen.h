@@ -3,6 +3,10 @@
 #include "matrix.h"
 #include <stdint.h>
 
+uint32_t rgb(uint8_t r, uint8_t g, uint8_t b);
+
+uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+
 typedef struct screen_struct {
 	size_t width;
 	size_t height;
@@ -13,10 +17,6 @@ screen make_screen(size_t width, size_t height);
 
 void free_screen(screen s);
 
-void plot(screen s, int32_t x, int32_t y, uint32_t value);
-
-uint32_t rgb(uint8_t r, uint8_t g, uint8_t b);
-
-uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+void plot(screen s, int32_t x, int32_t y, uint32_t color);
 
 #endif

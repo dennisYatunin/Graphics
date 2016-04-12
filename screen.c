@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
-	return r << 16 | g << 8 | b;
+	return r << 24 | g << 16 | b << 8;
 }
 
 uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
@@ -35,8 +35,8 @@ void free_screen(screen s) {
 	free(s);
 }
 
-void plot(screen s, int32_t x, int32_t y, uint32_t value) {
+void plot(screen s, int32_t x, int32_t y, uint32_t color) {
 	if (x >= 0 && x < s->width && y >= 0 && y < s->height) {
-		s->data[s->width * (s->height - y - 1) + x] = value;
+		s->data[s->width * (s->height - y - 1) + x] = color;
 	}
 }

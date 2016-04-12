@@ -29,8 +29,13 @@ void parse(const char *name) {
 	// Default values
 	char color_type = PNG_RGB;
 	int width = 1000, height = 1000, color = rgb(255, 255, 255), segs = 50;
-	point_matrix pm = make_point_matrix(100);
-	matrix transform = identity_matrix(4);
+	vertex_list vlist = new_vlist(100);
+	face_list flist = new_flist(100);
+	perspective_data pdata = new_pdata();
+	char perspective = 0;
+	double center_x = 0, center_y = 0, center_z = 0;
+	double camera_x = 0, camera_y = 0, camera_z = 1;
+	double distance = 1;
 
 	double d1, d2, d3, d4, d5, d6, d7, d8;
 	int i1, i2, i3, i4;
@@ -49,6 +54,69 @@ void parse(const char *name) {
 			}
 			width = i1;
 			height = i2;
+		}
+		else if (strcmp(line, "setperspective\n") == 0) {
+			if (fgets(line, 255, fp) == NULL) {
+				error_msg(
+					"expected \"on\" or \"off\" after \"setperspective\""
+					);
+			}
+			if (strcmp(line, "on\n") == 0) {
+				if (perspective == 0) {
+					perspective = 1;
+					activate_perspective(pdata);
+				}
+			}
+			else if (strcmp(line, "off\n") == 0) {
+				if (perspective == 1) {
+					perspective = 0;
+					deactivate_perspective(pdata);
+				}
+			}
+			else {
+				error_msg(
+					"expected \"on\" or \"off\" after \"setperspective\""
+					);
+			}
+		}
+		else if (strcmp(line, "setcenter\n") == 0) {
+			if (
+				fgets(line, 255, fp) == NULL ||
+				sscanf(line,"%d %d %d\n", &i1, &i2, &i3) < 3
+				) {
+				error_msg("expected x, y, z after \"setcenter\"");
+			}
+			center_x = i1; center_y = i2; center_z = i3;
+			update_pdata(
+				pdata, center_x, center_y, center_z,
+				camera_x, camera_y, camera_z, distance
+				);
+		}
+		else if (strcmp(line, "setcamera\n") == 0) {
+			if (
+				fgets(line, 255, fp) == NULL ||
+				sscanf(line,"%d %d %d\n", &i1, &i2, &i3) < 3
+				) {
+				error_msg("expected x, y, z after \"setcamera\"");
+			}
+			camera_x = i1; camera_y = i2; camera_z = i3;
+			update_pdata(
+				pdata, center_x, center_y, center_z,
+				camera_x, camera_y, camera_z, distance
+				);
+		}
+		else if (strcmp(line, "setdistance\n") == 0) {
+			if (
+				fgets(line, 255, fp) == NULL ||
+				sscanf(line,"%d\n", &i1) < 1
+				) {
+				error_msg("expected distance after \"setdistance\"");
+			}
+			distance = i1;
+			update_pdata(
+				pdata, center_x, center_y, center_z,
+				camera_x, camera_y, camera_z, distance
+				);
 		}
 		else if (strcmp(line, "setct\n") == 0) {
 			if (fgets(line, 255, fp) == NULL) {
@@ -95,7 +163,7 @@ void parse(const char *name) {
 		}
 		else if (strcmp(line, "display\n") == 0) {
 			s = make_screen(width, height);
-			draw_lines(pm, s);
+			draw_polygons(s, vlist, flist, pdata);
 			display_png(s, color_type);
 			free_screen(s);
 		}
@@ -104,10 +172,11 @@ void parse(const char *name) {
 				error_msg("expected file name after \"save\"");
 			}
 			s = make_screen(width, height);
-			draw_lines(pm, s);
+			draw_polygons(s, vlist, flist, pdata);
 			make_png(line, s, color_type);
 			free_screen(s);
 		}
+		/*
 		else if (strcmp(line, "line\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
@@ -157,6 +226,7 @@ void parse(const char *name) {
 			}
 			add_curve(pm, d1, d2, d3, d4, d5, d6, d7, d8, segs, BEZIER, color);
 		}
+		*/
 		else if (strcmp(line, "box\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
@@ -167,8 +237,9 @@ void parse(const char *name) {
 				) {
 				error_msg("expected x, y, z, h, w, d after \"box\"");
 			}
-			add_box(pm, d1, d2, d3, d4, d5, d6, color);
+			add_box(vlist, flist, d1, d2, d3, d4, d5, d6, color);
 		}
+		/*
 		else if (strcmp(line, "sphere\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
@@ -254,6 +325,7 @@ void parse(const char *name) {
 		else if (strcmp(line, "clear\n") == 0) {
 			clear_point_matrix(pm);
 		}
+		*/
 		else {
 			line[strlen(line) - 1] = '\0';
 			fprintf(stderr, "Parse error: invalid command (\"%s\")\n", line);

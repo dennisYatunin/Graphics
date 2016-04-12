@@ -1,9 +1,361 @@
 #include "draw.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include <math.h>
 
+vertex_list new_vlist(size_t max_num_vertices) {
+	vertex_list vlist = (vertex_list) malloc(sizeof(struct vertex_list_struct));
+	if (vlist == NULL) {
+		perror("New VList error (malloc)");
+		exit(EXIT_FAILURE);
+	}
+	vlist->size = 0;
+	vlist->capacity = max_num_vertices;
+	vlist->list = (vertex *) malloc(max_num_vertices * sizeof(vertex));
+	if (vlist->list == NULL) {
+		perror("New VList error (malloc)");
+		exit(EXIT_FAILURE);
+	}
+	return vlist;
+}
+
+void free_vlist(vertex_list vlist) {
+	free(vlist->list);
+	free(vlist);
+}
+
+void clear_vlist(vertex_list vlist) {
+	vlist->size = 0;
+}
+
+void add_vertex(
+	vertex_list vlist, double x, double y, double z, uint32_t color
+	) {
+	if (vlist->size == vlist->capacity) {
+		vlist->capacity *= 2;
+		vlist->list = realloc(vlist->list, vlist->capacity * sizeof(vertex));
+		if (vlist->list == NULL) {
+			perror("Add Vertex error (realloc)");
+			exit(EXIT_FAILURE);
+		}
+	}
+	vertex v;
+	v.x = x; v.y = y; v.z = z; v.color = color;
+	vlist->list[vlist->size++] = v;
+}
+/*
+void transform(vertex_list vlist, matrix m) {
+	vertex *old_list = vlist->list;
+	vertex *new_list = (vertex *) malloc(vlist->capacity * sizeof(vertex));
+	if (new_list == NULL) {
+		perror("Transform error (malloc)");
+		exit(EXIT_FAILURE);
+	}
+	vertex *new_list_copy = new_list;
+	matrix m_copy = m;
+	vertex old_v, new_v;
+	size_t counter = vlist->size;
+	while (counter--) {
+		old_v = *old_list++;
+		m = m_copy;
+		new_v.x = old_v.x * *m++ + old_v.y * *m++ + old_v.z * *m++ + *m++;
+		new_v.y = old_v.x * *m++ + old_v.y * *m++ + old_v.z * *m++ + *m++;
+		new_v.z = old_v.x * *m++ + old_v.y * *m++ + old_v.z * *m++ + *m;
+		new_v.color = old_v.color;
+		*new_list++ = new_v;
+	}
+	free(vlist->list);
+	vlist->list = new_list_copy;
+}
+*/
+face_list new_flist(size_t max_num_faces) {
+	face_list flist = (face_list) malloc(sizeof(struct face_list_struct));
+	if (flist == NULL) {
+		perror("New FList error (malloc)");
+		exit(EXIT_FAILURE);
+	}
+	flist->size = 0;
+	flist->capacity = max_num_faces;
+	flist->list = (face *) malloc(max_num_faces * sizeof(face));
+	if (flist->list == NULL) {
+		perror("New FList error (malloc)");
+		exit(EXIT_FAILURE);
+	}
+	return flist;
+}
+
+void free_flist(face_list flist) {
+	free(flist->list);
+	free(flist);
+}
+
+void clear_flist(face_list flist) {
+	flist->size = 0;
+}
+
+void add_face(face_list flist, size_t v0, size_t v1, size_t v2) {
+	if (flist->size == flist->capacity) {
+		flist->capacity *= 2;
+		flist->list = realloc(flist->list, flist->capacity * sizeof(face));
+		if (flist->list == NULL) {
+			perror("Add Face error (realloc)");
+			exit(EXIT_FAILURE);
+		}
+	}
+	face f;
+	f.v0 = v0; f.v1 = v1; f.v2 = v2;
+	flist->list[flist->size++] = f;
+}
+
+void draw_line(
+	screen s,
+	int32_t x0, int32_t y0, uint32_t color0,
+	int32_t x1, int32_t y1, uint32_t color1
+	) {
+	int32_t dx = abs(x1 - x0);
+	int32_t dy = abs(y1 - y0);
+
+	int32_t x_step = x0 < x1 ? 1 : -1;
+	int32_t y_step = y0 < y1 ? 1 : -1;
+
+	int32_t error = (dx > dy ? dx : -dy) / 2;
+	int32_t original_error;
+	if (color0 == color1) {
+		while (1) {
+			plot(s, x0, y0, color0);
+			if (x0 == x1 && y0 == y1) {
+				return;
+			}
+			original_error = error;
+			if (original_error > -dx) {
+				error -= dy;
+				x0 += x_step;
+			}
+			if (original_error < dy) {
+				error += dx;
+				y0 += y_step;
+			}
+		}
+	}
+	// this could probably be done more efficiently, but I'm too lazy to do that
+	else {
+		int32_t error_copy = error, x0_copy = x0, y0_copy = y0;
+		size_t num_steps = 0;
+		int8_t r0 = (int8_t) (color0 >> 24 & 0xFF);
+		int8_t dr = (int8_t) (color1 >> 24 & 0xFF) - r0;
+		int8_t g0 = (int8_t) (color0 >> 16 & 0xFF);
+		int8_t dg = (int8_t) (color1 >> 16 & 0xFF) - g0;
+		int8_t b0 = (int8_t) (color0 >> 8  & 0xFF);
+		int8_t db = (int8_t) (color1 >> 8  & 0xFF) - b0;
+		int8_t a0 = (int8_t) (color0       & 0xFF);
+		int8_t da = (int8_t) (color1       & 0xFF) - a0;
+		while (1) {
+			num_steps++;
+			if (x0_copy == x1 && y0_copy == y1) {
+				num_steps--;
+				break;
+			}
+			original_error = error;
+			if (original_error > -dx) {
+				error_copy -= dy;
+				x0_copy += x_step;
+			}
+			if (original_error < dy) {
+				error_copy += dx;
+				y0_copy += y_step;
+			}
+		}
+		size_t num_steps_copy = 0;
+		while (1) {
+			plot(s, x0, y0,
+				(uint8_t) (r0 + dr * num_steps_copy / num_steps) << 24 |
+				(uint8_t) (g0 + dg * num_steps_copy / num_steps) << 16 |
+				(uint8_t) (b0 + db * num_steps_copy / num_steps) << 8  |
+				(uint8_t) (a0 + da * num_steps_copy / num_steps)
+				);
+			num_steps_copy++;
+			if (x0 == x1 && y0 == y1) {
+				return;
+			}
+			original_error = error;
+			if (original_error > -dx) {
+				error -= dy;
+				x0 += x_step;
+			}
+			if (original_error < dy) {
+				error += dx;
+				y0 += y_step;
+			}
+		}
+	}
+}
+
+perspective_data new_pdata() {
+	perspective_data pdata = (perspective_data)
+	malloc(sizeof(struct perspective_data_struct));
+	if (pdata == NULL) {
+		perror("New PData error (malloc)");
+		exit(EXIT_FAILURE);
+	}
+	deactivate_perspective(pdata);
+	update_pdata(pdata, 0, 0, 0, 0, 0, 1, 1);
+	return pdata;
+}
+
+void activate_perspective(perspective_data pdata) {
+	pdata->active = 1;
+}
+
+void deactivate_perspective(perspective_data pdata) {
+	pdata->active = 0;
+}
+
+void update_pdata(
+	perspective_data pdata,
+	double center_x, double center_y, double center_z,
+	double camera_x, double camera_y, double camera_z,
+	double distance
+	) {
+	double cam_to_center_x = center_x - camera_x;
+	double cam_to_center_y = center_y - camera_y;
+	double cam_to_center_z = center_z - camera_z;
+	double square_xy =
+	cam_to_center_x * cam_to_center_x + cam_to_center_y * cam_to_center_y;
+	double radius_xy = sqrt(square_xy);
+	double sin_1 = cam_to_center_x / radius_xy;
+	double cos_1 = cam_to_center_y / radius_xy;
+	double radius_xyz = sqrt(square_xy + cam_to_center_z * cam_to_center_z);
+	double sin_2 = cam_to_center_z / radius_xyz;
+	double cos_2 = radius_xy / radius_xyz;
+	pdata->view_x = cam_to_center_x / radius_xyz;
+	pdata->view_y = cam_to_center_y / radius_xyz;
+	pdata->view_z = cam_to_center_z / radius_xyz;
+	pdata->sx1 = cos_1;
+	pdata->sy1 = -sin_1;
+	pdata->c1  = -cos_1 * camera_x + sin_1 * camera_y;
+	pdata->sx2 = -sin_1 * sin_2;
+	pdata->sy2 = -cos_1 * sin_2;
+	pdata->sz2 = cos_2;
+	pdata->c2  =
+	-pdata->sx2 * camera_x - pdata->sy2 * camera_y - cos_2 * camera_z;
+	pdata->sx3 = sin_1 * cos_2 / distance;
+	pdata->sy3 = cos_1 * cos_2 / distance;
+	pdata->sz3 = sin_2 / distance;
+	pdata->c3  =
+	-pdata->sx3 * camera_x - pdata->sy3 * camera_y - pdata->sz3 * camera_z;
+}
+
+double project_x(vertex v, perspective_data pdata) {
+	return pdata->sx1 * v.x + pdata->sy1 * v.y + pdata->c1;
+}
+
+double project_y(vertex v, perspective_data pdata) {
+	return pdata->sx2 * v.x + pdata->sy2 * v.y + pdata->sz2 * v.z + pdata->c1;
+}
+
+void draw_edge(screen s, vertex v0, vertex v1, perspective_data pdata) {
+	if (pdata->active) {
+		double depth =
+		pdata->sx3 * v0.x + pdata->sy3 * v0.y + pdata->sz3 * v0.z + pdata->c3;
+		draw_line(
+			s,
+			(int32_t) (project_x(v0, pdata) / depth + s->width / 2),
+			(int32_t) (project_y(v0, pdata) / depth + s->height / 2),
+			v0.color,
+			(int32_t) (project_x(v1, pdata) / depth + s->width / 2),
+			(int32_t) (project_y(v1, pdata) / depth + s->height / 2),
+			v1.color
+			);
+	}
+	else {
+		draw_line(
+			s,
+			(int32_t) (project_x(v0, pdata) + s->width / 2),
+			(int32_t) (project_y(v0, pdata) + s->height / 2),
+			v0.color,
+			(int32_t) (project_x(v1, pdata) + s->width / 2),
+			(int32_t) (project_y(v1, pdata) + s->height / 2),
+			v1.color
+			);
+	}
+}
+
+void draw_polygons(
+	screen s, vertex_list vlist, face_list flist, perspective_data pdata
+	) {
+	size_t num_faces = flist->size;
+	face *faces = flist->list;
+	vertex *vertices = vlist->list;
+	face f;
+	vertex v0, v1, v2;
+	double vector1_x, vector1_y, vector1_z;
+	double vector2_x, vector2_y, vector2_z;
+	double cross_x, cross_y, cross_z;
+	double view_x = pdata->view_x;
+	double view_y = pdata->view_y;
+	double view_z = pdata->view_z;
+	while (num_faces--) {
+		f = *faces++;
+		v0 = vertices[f.v0];
+		v1 = vertices[f.v1];
+		v2 = vertices[f.v2];
+		vector1_x = v1.x - v0.x;
+		vector1_y = v1.y - v0.y;
+		vector1_z = v1.z - v0.z;
+		vector2_x = v2.x - v0.x;
+		vector2_y = v2.y - v0.y;
+		vector2_z = v2.z - v0.z;
+		cross_x = vector1_y * vector2_z - vector1_z * vector2_y;
+		cross_y = vector1_z * vector2_x - vector1_x * vector2_z;
+		cross_z = vector1_x * vector2_y - vector1_y * vector2_x;
+		if (
+			(view_x * cross_x + view_y * cross_y + view_z * cross_z) /
+			sqrt(cross_x * cross_x + cross_y * cross_y + cross_z * cross_z) <= 0
+			) {
+			draw_edge(s, vertices[f.v0], vertices[f.v1], pdata);
+			draw_edge(s, vertices[f.v1], vertices[f.v2], pdata);
+			draw_edge(s, vertices[f.v2], vertices[f.v0], pdata);
+		}
+	}
+}
+
+void add_box(
+	vertex_list vlist, face_list flist,
+	double x, double y, double z,
+	double w, double h, double d,
+	uint32_t color
+	) {
+	double x2 = x + w, y2 = y + h, z2 = z + d;
+	size_t first_index = vlist->size;
+	add_vertex(vlist, x , y , z , color);
+	add_vertex(vlist, x , y2, z , color);
+	add_vertex(vlist, x , y2, z2, color);
+	add_vertex(vlist, x , y , z2, color);
+	add_vertex(vlist, x2, y , z , color);
+	add_vertex(vlist, x2, y2, z , color);
+	add_vertex(vlist, x2, y2, z2, color);
+	add_vertex(vlist, x2, y , z2, color);
+
+	// planes perpendicular to x = constant
+	add_face(flist, first_index    , first_index + 5, first_index + 4);
+	add_face(flist, first_index    , first_index + 1, first_index + 5);
+	add_face(flist, first_index + 3, first_index + 1, first_index    );
+	add_face(flist, first_index + 3, first_index + 2, first_index + 1);
+	add_face(flist, first_index + 7, first_index + 2, first_index + 3);
+	add_face(flist, first_index + 7, first_index + 6, first_index + 2);
+	add_face(flist, first_index + 4, first_index + 6, first_index + 7);
+	add_face(flist, first_index + 4, first_index + 5, first_index + 6);
+
+	// planes parallel to x = constant
+	add_face(flist, first_index    , first_index + 7, first_index + 3);
+	add_face(flist, first_index    , first_index + 4, first_index + 7);
+	add_face(flist, first_index + 2, first_index + 5, first_index + 1);
+	add_face(flist, first_index + 2, first_index + 6, first_index + 5);\
+}
+
+/*
 point_matrix make_point_matrix(size_t capacity) {
 	point_matrix pm = (point_matrix) malloc(sizeof(struct point_matrix_struct));
 	if (pm == NULL) {
@@ -327,3 +679,4 @@ void add_torus(
 		alpha += alpha_inc;
 	}
 }
+*/

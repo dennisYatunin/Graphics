@@ -1,132 +1,18 @@
 setwh
-5000 5000
+100 100
+setperspective
+on
+setcenter
+0 0 0
+setcamera
+0 0 5
+setdistance
+2
 setct
 RGB
 setcolor
-0 255 0
-setsegs
-1000
-torus
-5000 500 0 250 1000
-box
-0 0 -625 2500 2500 1250
-box
--1 0 -625 2500 2500 1250
-box
--2 0 -625 2500 2500 1250
-box
--3 0 -625 2500 2500 1250
-box
--4 0 -625 2500 2500 1250
-line
-2500 2500 -625 0 3500 -625
-line
-2499 2500 -625 -1 3500 -625
-line
-2498 2500 -625 -2 3500 -625
-line
-2497 2500 -625 -3 3500 -625
-line
-2496 2500 -625 -4 3500 -625
-line
-2500 2500 625 0 3500 625
-line
-2499 2500 625 -1 3500 625
-line
-2498 2500 625 -2 3500 625
-line
-2497 2500 625 -3 3500 625
-line
-2496 2500 625 -4 3500 625
-line
-0 3500 625 0 3500 -625
-line
--1 3500 625 -1 3500 -625
-line
--2 3500 625 -2 3500 -625
-line
--3 3500 625 -3 3500 -625
-line
--4 3500 625 -4 3500 -625
-line
-0 3500 625 0 2500 625
-line
--1 3500 625 -1 2500 625
-line
--2 3500 625 -2 2500 625
-line
--3 3500 625 -3 2500 625
-line
--4 3500 625 -4 2500 625
-line
-0 3500 -625 0 2500 -625
-line
--1 3500 -625 -1 2500 -625
-line
--2 3500 -625 -2 2500 -625
-line
--3 3500 -625 -3 2500 -625
-line
--4 3500 -625 -4 2500 -625
-setsegs
-75
-setcolor
-255 255 0
-sphere
-0 3750 0 250
-setcolor
-255 255 50
-sphere
-1250 3250 0 250
-setcolor
-255 255 100
-sphere
-2500 2750 0 250
-setcolor
-255 255 150
-sphere
-3750 2150 0 250
-setcolor
-255 255 200
-sphere
-5000 1150 0 250
-setsegs
-50
-setcolor
 255 255 255
-ident
-translate
--4000 -4000 500
-xrotate
-90
-apply
-sphere
-0 0 0 1000
-sphere
-0 0 0 800
-sphere
-0 0 0 600
-sphere
-0 0 0 400
-sphere
-0 0 0 200
-setcolor
-255 0 0
-setsegs
-100
-sphere
-0 0 0 100
-ident
-xrotate
--90
-translate
-4000 4000 -500
-apply
-ident
-yrotate
-20
-xrotate
-10
-apply
+box
+-20 -20 0 40 40 40
 display
 quit

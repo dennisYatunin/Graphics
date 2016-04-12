@@ -146,9 +146,9 @@ const uint32_t crc32_lookup_table[] = {
 		PUTC_AND_CRC(cur_byte);                                                \
 		ADLER(cur_byte, adler_sum1, adler_sum2);                               \
 		line_pos++;                                                            \
-		if (pixel_pos-- == 0) {                                                \
+		if (pixel_pos-- == 1) {                                                \
 			cur_pixel = *data++;                                               \
-			pixel_pos = 2;                                                     \
+			pixel_pos = 3;                                                     \
 		}                                                                      \
 	}                                                                          \
 	if (++mod_delay == MAX_ADDITIONS) {                                        \
@@ -210,7 +210,7 @@ void data_chunks_rgb(
 	uint32_t mod_delay = 0;
 	uint32_t line_pos = max_line_pos;
 	uint32_t cur_pixel = *data++;
-	uint32_t pixel_pos = 2; // 2 = red, 1 = green, 0 = blue
+	uint32_t pixel_pos = 3; // 3 = red, 2 = green, 1 = blue
 
 	uint32_t block_pos, cur_byte;
 

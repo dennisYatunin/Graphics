@@ -3,6 +3,92 @@
 #include "matrix.h"
 #include "screen.h"
 
+typedef struct vertex_struct {
+	double x;
+	double y;
+	double z;
+	uint32_t color;
+} vertex;
+
+typedef struct vertex_list_struct {
+	size_t size;
+	size_t capacity;
+	vertex *list;
+} *vertex_list;
+
+vertex_list new_vlist(size_t max_num_vertices);
+
+void free_vlist(vertex_list vlist);
+
+void clear_vlist(vertex_list vlist);
+
+void add_vertex(
+	vertex_list vlist, double x, double y, double z, uint32_t color
+	);
+
+void transform(vertex_list vlist, matrix m);
+
+typedef struct face_struct {
+	size_t v0;
+	size_t v1;
+	size_t v2;
+} face;
+
+typedef struct face_list_struct {
+	size_t size;
+	size_t capacity;
+	face *list;
+} *face_list;
+
+face_list new_flist(size_t max_num_faces);
+
+void free_flist(face_list flist);
+
+void clear_flist(face_list flist);
+
+void add_face(face_list flist, size_t v0, size_t v1, size_t v2);
+
+void draw_line(
+	screen s,
+	int32_t x0, int32_t y0, uint32_t color0,
+	int32_t x1, int32_t y1, uint32_t color1
+	);
+
+typedef struct perspective_data_struct {
+	uint8_t active;
+	double view_x; double view_y; double view_z;
+	double sx1; double sy1; double c1;
+	double sx2; double sy2; double sz2; double c2;
+	double sx3; double sy3; double sz3; double c3;
+} *perspective_data;
+
+perspective_data new_pdata();
+
+void activate_perspective(perspective_data pdata);
+
+void deactivate_perspective(perspective_data pdata);
+
+void update_pdata(
+	perspective_data pdata,
+	double center_x, double center_y, double center_z,
+	double camera_x, double camera_y, double camera_z,
+	double distance
+	);
+
+void draw_edge(screen s, vertex v0, vertex v1, perspective_data pdata);
+
+void draw_polygons(
+	screen s, vertex_list vlist, face_list flist, perspective_data pdata
+	);
+
+void add_box(
+	vertex_list vlist, face_list flist,
+	double x, double y, double z,
+	double w, double h, double d,
+	uint32_t color
+	);
+
+/*
 typedef struct point_matrix_struct {
 	size_t size;
 	matrix points;
@@ -67,5 +153,5 @@ void add_curve(
 	double x3, double y3,
 	int steps, char type, uint32_t color
 	);
-
+*/
 #endif
