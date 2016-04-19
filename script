@@ -1,18 +1,626 @@
-setwh
-100 100
-setperspective
-on
-setcenter
-0 0 0
-setcamera
-0 0 5
-setdistance
+setcolor
+255 255 0
+#body
+push
+translate
+25 25 0
+box
+-10 15 25 20 30 5
+#head
+push
+translate
+0 21 0
+sphere
+0 0 0 5
+#right arm
+pop
+push
+translate
+10 15 0
+xrotate
+5
+box
+0 0 2 5 20 4
+#left arm
+pop
+push
+translate
+-10 15 0
+xrotate
+-5
+box
+-5 0 0 5 20 4
+#right leg
+pop
+push
+translate
+10 -15 0
+xrotate
+-2
+box
+-6 0 2 6 10 4
+#left leg
+pop
+push
+translate
+-10 -15 0
+xrotate
 2
-setct
-RGB
+box
+0 0 2 6 10 4
+pop
+pop
+setcolor
+255 255 30
+#body
+push
+translate
+105 105 0
+box
+-10 15 25 20 30 5
+#head
+push
+translate
+0 21 0
+sphere
+0 0 0 5
+#right arm
+pop
+push
+translate
+10 15 0
+xrotate
+5
+box
+0 0 2 5 20 4
+#left arm
+pop
+push
+translate
+-10 15 0
+xrotate
+-5
+box
+-5 0 0 5 20 4
+#right leg
+pop
+push
+translate
+10 -15 0
+xrotate
+-2
+box
+-6 0 2 6 10 4
+#left leg
+pop
+push
+translate
+-10 -15 0
+xrotate
+2
+box
+0 0 2 6 10 4
+pop
+pop
+setcolor
+255 255 60
+#body
+push
+translate
+185 185 0
+box
+-10 15 25 20 30 5
+#head
+push
+translate
+0 21 0
+sphere
+0 0 0 5
+#right arm
+pop
+push
+translate
+10 15 0
+xrotate
+5
+box
+0 0 2 5 20 4
+#left arm
+pop
+push
+translate
+-10 15 0
+xrotate
+-5
+box
+-5 0 0 5 20 4
+#right leg
+pop
+push
+translate
+10 -15 0
+xrotate
+-2
+box
+-6 0 2 6 10 4
+#left leg
+pop
+push
+translate
+-10 -15 0
+xrotate
+2
+box
+0 0 2 6 10 4
+pop
+pop
+setcolor
+255 255 90
+#body
+push
+translate
+265 265 0
+box
+-10 15 25 20 30 5
+#head
+push
+translate
+0 21 0
+sphere
+0 0 0 5
+#right arm
+pop
+push
+translate
+10 15 0
+xrotate
+5
+box
+0 0 2 5 20 4
+#left arm
+pop
+push
+translate
+-10 15 0
+xrotate
+-5
+box
+-5 0 0 5 20 4
+#right leg
+pop
+push
+translate
+10 -15 0
+xrotate
+-2
+box
+-6 0 2 6 10 4
+#left leg
+pop
+push
+translate
+-10 -15 0
+xrotate
+2
+box
+0 0 2 6 10 4
+pop
+pop
+setcolor
+255 255 120
+#body
+push
+translate
+345 345 0
+box
+-10 15 25 20 30 5
+#head
+push
+translate
+0 21 0
+sphere
+0 0 0 5
+#right arm
+pop
+push
+translate
+10 15 0
+xrotate
+5
+box
+0 0 2 5 20 4
+#left arm
+pop
+push
+translate
+-10 15 0
+xrotate
+-5
+box
+-5 0 0 5 20 4
+#right leg
+pop
+push
+translate
+10 -15 0
+xrotate
+-2
+box
+-6 0 2 6 10 4
+#left leg
+pop
+push
+translate
+-10 -15 0
+xrotate
+2
+box
+0 0 2 6 10 4
+pop
+pop
+setcolor
+255 255 150
+#body
+push
+translate
+425 425 0
+box
+-10 15 25 20 30 5
+#head
+push
+translate
+0 21 0
+sphere
+0 0 0 5
+#right arm
+pop
+push
+translate
+10 15 0
+xrotate
+5
+box
+0 0 2 5 20 4
+#left arm
+pop
+push
+translate
+-10 15 0
+xrotate
+-5
+box
+-5 0 0 5 20 4
+#right leg
+pop
+push
+translate
+10 -15 0
+xrotate
+-2
+box
+-6 0 2 6 10 4
+#left leg
+pop
+push
+translate
+-10 -15 0
+xrotate
+2
+box
+0 0 2 6 10 4
+pop
+pop
+setcolor
+255 255 180
+#body
+push
+translate
+505 505 0
+box
+-10 15 25 20 30 5
+#head
+push
+translate
+0 21 0
+sphere
+0 0 0 5
+#right arm
+pop
+push
+translate
+10 15 0
+xrotate
+5
+box
+0 0 2 5 20 4
+#left arm
+pop
+push
+translate
+-10 15 0
+xrotate
+-5
+box
+-5 0 0 5 20 4
+#right leg
+pop
+push
+translate
+10 -15 0
+xrotate
+-2
+box
+-6 0 2 6 10 4
+#left leg
+pop
+push
+translate
+-10 -15 0
+xrotate
+2
+box
+0 0 2 6 10 4
+pop
+pop
+setcolor
+255 255 210
+#body
+push
+translate
+585 585 0
+box
+-10 15 25 20 30 5
+#head
+push
+translate
+0 21 0
+sphere
+0 0 0 5
+#right arm
+pop
+push
+translate
+10 15 0
+xrotate
+5
+box
+0 0 2 5 20 4
+#left arm
+pop
+push
+translate
+-10 15 0
+xrotate
+-5
+box
+-5 0 0 5 20 4
+#right leg
+pop
+push
+translate
+10 -15 0
+xrotate
+-2
+box
+-6 0 2 6 10 4
+#left leg
+pop
+push
+translate
+-10 -15 0
+xrotate
+2
+box
+0 0 2 6 10 4
+pop
+pop
+setcolor
+255 255 240
+#body
+push
+translate
+665 665 0
+box
+-10 15 25 20 30 5
+#head
+push
+translate
+0 21 0
+sphere
+0 0 0 5
+#right arm
+pop
+push
+translate
+10 15 0
+xrotate
+5
+box
+0 0 2 5 20 4
+#left arm
+pop
+push
+translate
+-10 15 0
+xrotate
+-5
+box
+-5 0 0 5 20 4
+#right leg
+pop
+push
+translate
+10 -15 0
+xrotate
+-2
+box
+-6 0 2 6 10 4
+#left leg
+pop
+push
+translate
+-10 -15 0
+xrotate
+2
+box
+0 0 2 6 10 4
+pop
+pop
 setcolor
 255 255 255
+#body
+push
+translate
+745 745 0
 box
--20 -20 0 40 40 40
+-10 15 25 20 30 5
+#head
+push
+translate
+0 21 0
+sphere
+0 0 0 5
+#right arm
+pop
+push
+translate
+10 15 0
+xrotate
+5
+box
+0 0 2 5 20 4
+#left arm
+pop
+push
+translate
+-10 15 0
+xrotate
+-5
+box
+-5 0 0 5 20 4
+#right leg
+pop
+push
+translate
+10 -15 0
+xrotate
+-2
+box
+-6 0 2 6 10 4
+#left leg
+pop
+push
+translate
+-10 -15 0
+xrotate
+2
+box
+0 0 2 6 10 4
+pop
+pop
+setcolor
+255 255 255
+#body
+push
+translate
+825 825 0
+box
+-10 15 25 20 30 5
+#head
+push
+translate
+0 21 0
+sphere
+0 0 0 5
+#right arm
+pop
+push
+translate
+10 15 0
+xrotate
+5
+box
+0 0 2 5 20 4
+#left arm
+pop
+push
+translate
+-10 15 0
+xrotate
+-5
+box
+-5 0 0 5 20 4
+#right leg
+pop
+push
+translate
+10 -15 0
+xrotate
+-2
+box
+-6 0 2 6 10 4
+#left leg
+pop
+push
+translate
+-10 -15 0
+xrotate
+2
+box
+0 0 2 6 10 4
+pop
+pop
+setcolor
+255 255 255
+#body
+push
+translate
+905 905 0
+box
+-10 15 25 20 30 5
+#head
+push
+translate
+0 21 0
+sphere
+0 0 0 5
+#right arm
+pop
+push
+translate
+10 15 0
+xrotate
+5
+box
+0 0 2 5 20 4
+#left arm
+pop
+push
+translate
+-10 15 0
+xrotate
+-5
+box
+-5 0 0 5 20 4
+#right leg
+pop
+push
+translate
+10 -15 0
+xrotate
+-2
+box
+-6 0 2 6 10 4
+#left leg
+pop
+push
+translate
+-10 -15 0
+xrotate
+2
+box
+0 0 2 6 10 4
+pop
+pop
 display
 quit

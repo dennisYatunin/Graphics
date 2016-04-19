@@ -45,8 +45,8 @@ void add_vertex(
 	v.x = x; v.y = y; v.z = z; v.color = color;
 	vlist->list[vlist->size++] = v;
 }
-/*
-void transform(vertex_list vlist, matrix m) {
+
+vertex *transformed_vertices(vertex_list vlist, matrix m) {
 	vertex *old_list = vlist->list;
 	vertex *new_list = (vertex *) malloc(vlist->capacity * sizeof(vertex));
 	if (new_list == NULL) {
@@ -66,10 +66,14 @@ void transform(vertex_list vlist, matrix m) {
 		new_v.color = old_v.color;
 		*new_list++ = new_v;
 	}
-	free(vlist->list);
-	vlist->list = new_list_copy;
+	return new_list_copy;
 }
-*/
+
+void transform(vertex_list vlist, matrix m) {
+	free(vlist->list);
+	vlist->list = transformed_vertices(vlist, m);
+}
+
 face_list new_flist(size_t max_num_faces) {
 	face_list flist = (face_list) malloc(sizeof(struct face_list_struct));
 	if (flist == NULL) {
@@ -139,7 +143,7 @@ void draw_line(
 			}
 		}
 	}
-	// this could probably be done more efficiently, but I'm too lazy to do that
+	// this could probably be done more efficiently, but I'm too lazy
 	else {
 		int32_t error_copy = error, x0_copy = x0, y0_copy = y0;
 		size_t num_steps = 0;
@@ -192,133 +196,56 @@ void draw_line(
 	}
 }
 
-perspective_data new_pdata() {
-	perspective_data pdata = (perspective_data)
-	malloc(sizeof(struct perspective_data_struct));
-	if (pdata == NULL) {
-		perror("New PData error (malloc)");
-		exit(EXIT_FAILURE);
-	}
-	deactivate_perspective(pdata);
-	update_pdata(pdata, 0, 0, 0, 0, 0, 1, 1);
-	return pdata;
-}
-
-void activate_perspective(perspective_data pdata) {
-	pdata->active = 1;
-}
-
-void deactivate_perspective(perspective_data pdata) {
-	pdata->active = 0;
-}
-
-void update_pdata(
-	perspective_data pdata,
-	double center_x, double center_y, double center_z,
-	double camera_x, double camera_y, double camera_z,
-	double distance
-	) {
-	double cam_to_center_x = center_x - camera_x;
-	double cam_to_center_y = center_y - camera_y;
-	double cam_to_center_z = center_z - camera_z;
-	double square_xy =
-	cam_to_center_x * cam_to_center_x + cam_to_center_y * cam_to_center_y;
-	double radius_xy = sqrt(square_xy);
-	double sin_1 = cam_to_center_x / radius_xy;
-	double cos_1 = cam_to_center_y / radius_xy;
-	double radius_xyz = sqrt(square_xy + cam_to_center_z * cam_to_center_z);
-	double sin_2 = cam_to_center_z / radius_xyz;
-	double cos_2 = radius_xy / radius_xyz;
-	pdata->view_x = cam_to_center_x / radius_xyz;
-	pdata->view_y = cam_to_center_y / radius_xyz;
-	pdata->view_z = cam_to_center_z / radius_xyz;
-	pdata->sx1 = cos_1;
-	pdata->sy1 = -sin_1;
-	pdata->c1  = -cos_1 * camera_x + sin_1 * camera_y;
-	pdata->sx2 = -sin_1 * sin_2;
-	pdata->sy2 = -cos_1 * sin_2;
-	pdata->sz2 = cos_2;
-	pdata->c2  =
-	-pdata->sx2 * camera_x - pdata->sy2 * camera_y - cos_2 * camera_z;
-	pdata->sx3 = sin_1 * cos_2 / distance;
-	pdata->sy3 = cos_1 * cos_2 / distance;
-	pdata->sz3 = sin_2 / distance;
-	pdata->c3  =
-	-pdata->sx3 * camera_x - pdata->sy3 * camera_y - pdata->sz3 * camera_z;
-}
-
-double project_x(vertex v, perspective_data pdata) {
-	return pdata->sx1 * v.x + pdata->sy1 * v.y + pdata->c1;
-}
-
-double project_y(vertex v, perspective_data pdata) {
-	return pdata->sx2 * v.x + pdata->sy2 * v.y + pdata->sz2 * v.z + pdata->c1;
-}
-
-void draw_edge(screen s, vertex v0, vertex v1, perspective_data pdata) {
-	if (pdata->active) {
-		double depth =
-		pdata->sx3 * v0.x + pdata->sy3 * v0.y + pdata->sz3 * v0.z + pdata->c3;
-		draw_line(
-			s,
-			(int32_t) (project_x(v0, pdata) / depth + s->width / 2),
-			(int32_t) (project_y(v0, pdata) / depth + s->height / 2),
-			v0.color,
-			(int32_t) (project_x(v1, pdata) / depth + s->width / 2),
-			(int32_t) (project_y(v1, pdata) / depth + s->height / 2),
-			v1.color
-			);
-	}
-	else {
-		draw_line(
-			s,
-			(int32_t) (project_x(v0, pdata) + s->width / 2),
-			(int32_t) (project_y(v0, pdata) + s->height / 2),
-			v0.color,
-			(int32_t) (project_x(v1, pdata) + s->width / 2),
-			(int32_t) (project_y(v1, pdata) + s->height / 2),
-			v1.color
-			);
-	}
-}
-
 void draw_polygons(
-	screen s, vertex_list vlist, face_list flist, perspective_data pdata
+	screen s, vertex_list vlist, face_list flist, matrix perp, char perspective
 	) {
 	size_t num_faces = flist->size;
 	face *faces = flist->list;
-	vertex *vertices = vlist->list;
+	vertex *vertices = transformed_vertices(vlist, perp);
 	face f;
 	vertex v0, v1, v2;
-	double vector1_x, vector1_y, vector1_z;
-	double vector2_x, vector2_y, vector2_z;
-	double cross_x, cross_y, cross_z;
-	double view_x = pdata->view_x;
-	double view_y = pdata->view_y;
-	double view_z = pdata->view_z;
-	while (num_faces--) {
-		f = *faces++;
-		v0 = vertices[f.v0];
-		v1 = vertices[f.v1];
-		v2 = vertices[f.v2];
-		vector1_x = v1.x - v0.x;
-		vector1_y = v1.y - v0.y;
-		vector1_z = v1.z - v0.z;
-		vector2_x = v2.x - v0.x;
-		vector2_y = v2.y - v0.y;
-		vector2_z = v2.z - v0.z;
-		cross_x = vector1_y * vector2_z - vector1_z * vector2_y;
-		cross_y = vector1_z * vector2_x - vector1_x * vector2_z;
-		cross_z = vector1_x * vector2_y - vector1_y * vector2_x;
-		if (
-			(view_x * cross_x + view_y * cross_y + view_z * cross_z) /
-			sqrt(cross_x * cross_x + cross_y * cross_y + cross_z * cross_z) <= 0
-			) {
-			draw_edge(s, vertices[f.v0], vertices[f.v1], pdata);
-			draw_edge(s, vertices[f.v1], vertices[f.v2], pdata);
-			draw_edge(s, vertices[f.v2], vertices[f.v0], pdata);
+	double a_x, a_z, b_x, b_z, cross_y;
+	if (perspective) {
+		while (num_faces--) {
+			f = *faces++;
+			v0 = vertices[f.v0]; v1 = vertices[f.v1]; v2 = vertices[f.v2];
+			a_x = v1.x - v0.x; a_z = v1.z - v0.z;
+			b_x = v2.x - v0.x; b_z = v2.z - v0.z;
+			cross_y = a_z * b_x - a_x * b_z;
+			if (cross_y < 0) {
+				draw_line(
+					s,
+					v0.x / v0.y, v0.z / v0.y, v0.color,
+					v1.x / v1.y, v1.z / v1.y, v1.color
+					);
+				draw_line(
+					s,
+					v1.x / v1.y, v1.z / v1.y, v1.color,
+					v2.x / v2.y, v2.z / v2.y, v2.color
+					);
+				draw_line(
+					s,
+					v2.x / v2.y, v2.z / v2.y, v2.color,
+					v0.x / v0.y, v0.z / v0.y, v0.color
+					);
+			}
 		}
 	}
+	else {
+		while (num_faces--) {
+			f = *faces++;
+			v0 = vertices[f.v0]; v1 = vertices[f.v1]; v2 = vertices[f.v2];
+			a_x = v1.x - v0.x; a_z = v1.z - v0.z;
+			b_x = v2.x - v0.x; b_z = v2.z - v0.z;
+			cross_y = a_z * b_x - a_x * b_z;
+			if (cross_y < 0) {
+				draw_line(s, v0.x, v0.z, v0.color, v1.x, v1.z, v1.color);
+				draw_line(s, v1.x, v1.z, v1.color, v2.x, v2.z, v2.color);
+				draw_line(s, v2.x, v2.z, v2.color, v0.x, v0.z, v0.color);
+			}
+		}
+	}
+	free(vertices);
 }
 
 void add_box(
@@ -327,8 +254,9 @@ void add_box(
 	double w, double h, double d,
 	uint32_t color
 	) {
-	double x2 = x + w, y2 = y + h, z2 = z + d;
 	size_t first_index = vlist->size;
+
+	double x2 = x + w, y2 = y - h, z2 = z - d;
 	add_vertex(vlist, x , y , z , color);
 	add_vertex(vlist, x , y2, z , color);
 	add_vertex(vlist, x , y2, z2, color);
@@ -352,7 +280,91 @@ void add_box(
 	add_face(flist, first_index    , first_index + 7, first_index + 3);
 	add_face(flist, first_index    , first_index + 4, first_index + 7);
 	add_face(flist, first_index + 2, first_index + 5, first_index + 1);
-	add_face(flist, first_index + 2, first_index + 6, first_index + 5);\
+	add_face(flist, first_index + 2, first_index + 6, first_index + 5);
+}
+
+void add_sphere(
+	vertex_list vlist, face_list flist,
+	double cx, double cy, double cz,
+	double r, int steps, uint32_t color
+	) {
+	size_t first_index = vlist->size;
+	add_vertex(vlist, cx, cy, cz + r, color);
+
+	int step_count, half_step_count;
+	int half_steps = steps / 2;
+	double phi = 0.0, phi_inc = M_PI / half_steps;
+	double theta, theta_inc = 2 * M_PI / steps;
+	double pre_xy, z;
+	for (half_step_count = 1; half_step_count < half_steps; half_step_count++) {
+		phi += phi_inc;
+		pre_xy = r * sin(phi);
+		z = cz + r * cos(phi);
+		add_vertex(vlist, cx + pre_xy, cy, z, color);
+		theta = 0;
+		for (step_count = 1; step_count < steps; step_count++) {
+			theta += theta_inc;
+			add_vertex(
+				vlist,
+				cx + pre_xy * cos(theta), cy + pre_xy * sin(theta), z, color
+				);
+		}
+	}
+
+	add_vertex(vlist, cx, cy, cz - r, color);
+
+	for (step_count = 1; step_count < steps; step_count++) {
+		add_face(
+			flist,
+			first_index, first_index + step_count, first_index + step_count + 1
+			);
+	}
+	add_face(flist, first_index, first_index + step_count, first_index + 1);
+
+	half_steps -= 2;
+	for (half_step_count = 0; half_step_count < half_steps; half_step_count++) {
+		for (step_count = 1; step_count < steps; step_count++) {
+			add_face(
+				flist,
+				first_index + half_step_count * steps + step_count,
+				first_index + half_step_count * steps + steps + step_count,
+				first_index + half_step_count * steps + steps + step_count + 1
+				);
+			add_face(
+				flist,
+				first_index + half_step_count * steps + step_count,
+				first_index + half_step_count * steps + steps + step_count + 1,
+				first_index + half_step_count * steps + step_count + 1
+				);
+		}
+		add_face(
+			flist,
+			first_index + half_step_count * steps + step_count,
+			first_index + half_step_count * steps + steps + step_count,
+			first_index + half_step_count * steps + steps + 1
+			);
+		add_face(
+			flist,
+			first_index + half_step_count * steps + step_count,
+			first_index + half_step_count * steps + steps + 1,
+			first_index + half_step_count * steps + 1
+			);
+	}
+
+	for (step_count = 1; step_count < steps; step_count++) {
+		add_face(
+			flist,
+			first_index + half_step_count * steps + step_count,
+			first_index + half_step_count * steps + steps + 1,
+			first_index + half_step_count * steps + step_count + 1
+			);
+	}
+	add_face(
+		flist,
+		first_index + half_step_count * steps + step_count,
+		first_index + half_step_count * steps + steps + 1,
+		first_index + half_step_count * steps + 1
+		);
 }
 
 /*

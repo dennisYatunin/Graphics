@@ -1,6 +1,6 @@
 #ifndef SCREEN_H
 #define SCREEN_H
-#include "matrix.h"
+#include <stddef.h>
 #include <stdint.h>
 
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b);

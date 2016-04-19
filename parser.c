@@ -27,23 +27,31 @@ void parse(const char *name) {
 	}
 
 	// Default values
-	char color_type = PNG_RGB;
-	int width = 1000, height = 1000, color = rgb(255, 255, 255), segs = 50;
+	char color_type = PNG_RGB, perspective = PERSPECTIVE_OFF;
+	int width = 1000, height = 1000, color = rgb(255, 255, 255), segs = 20;
+	screen s = make_screen(width, height);
 	vertex_list vlist = new_vlist(100);
 	face_list flist = new_flist(100);
-	perspective_data pdata = new_pdata();
-	char perspective = 0;
-	double center_x = 0, center_y = 0, center_z = 0;
-	double camera_x = 0, camera_y = 0, camera_z = 1;
+	stack st = new_stack(5);
+	vector center; center.x = 0; center.y = 0; center.z = 0;
+	vector view; view.x = 0; view.y = 0; view.z = -2;
 	double distance = 1;
+	matrix perp = perp_matrix(center, view, distance);
 
 	double d1, d2, d3, d4, d5, d6, d7, d8;
 	int i1, i2, i3, i4;
 	matrix temp;
-	screen s;
 	while (fgets(line, 255, fp) != NULL) {
+		if (*line == '#') {
+			continue;
+		}
 		if (strcmp(line, "quit\n") == 0) {
 			return;
+		}
+		else if (strcmp(line, "clear\n") == 0) {
+			clear_vlist(vlist);
+			clear_flist(flist);
+			clear_stack(st);
 		}
 		if (strcmp(line, "setwh\n") == 0) {
 			if (
@@ -52,8 +60,9 @@ void parse(const char *name) {
 				) {
 				error_msg("expected width and height after \"setwh\"");
 			}
-			width = i1;
-			height = i2;
+			width = i1; height = i2;
+			free_screen(s);
+			s = make_screen(width, height);
 		}
 		else if (strcmp(line, "setperspective\n") == 0) {
 			if (fgets(line, 255, fp) == NULL) {
@@ -62,16 +71,10 @@ void parse(const char *name) {
 					);
 			}
 			if (strcmp(line, "on\n") == 0) {
-				if (perspective == 0) {
-					perspective = 1;
-					activate_perspective(pdata);
-				}
+				perspective = PERSPECTIVE_ON;
 			}
 			else if (strcmp(line, "off\n") == 0) {
-				if (perspective == 1) {
-					perspective = 0;
-					deactivate_perspective(pdata);
-				}
+				perspective = PERSPECTIVE_OFF;
 			}
 			else {
 				error_msg(
@@ -82,41 +85,34 @@ void parse(const char *name) {
 		else if (strcmp(line, "setcenter\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
-				sscanf(line,"%d %d %d\n", &i1, &i2, &i3) < 3
+				sscanf(line,"%lf %lf %lf\n", &d1, &d2, &d3) < 3
 				) {
 				error_msg("expected x, y, z after \"setcenter\"");
 			}
-			center_x = i1; center_y = i2; center_z = i3;
-			update_pdata(
-				pdata, center_x, center_y, center_z,
-				camera_x, camera_y, camera_z, distance
-				);
+			center.x = d1; center.y = d2; center.z = d3;
+			perp = perp_matrix(center, view, distance);
 		}
 		else if (strcmp(line, "setcamera\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
-				sscanf(line,"%d %d %d\n", &i1, &i2, &i3) < 3
+				sscanf(line,"%lf %lf %lf\n", &d1, &d2, &d3) < 3
 				) {
 				error_msg("expected x, y, z after \"setcamera\"");
 			}
-			camera_x = i1; camera_y = i2; camera_z = i3;
-			update_pdata(
-				pdata, center_x, center_y, center_z,
-				camera_x, camera_y, camera_z, distance
-				);
+			view.x = center.x - d1;
+			view.y = center.y - d2;
+			view.z = center.z - d3;
+			perp = perp_matrix(center, view, distance);
 		}
 		else if (strcmp(line, "setdistance\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
-				sscanf(line,"%d\n", &i1) < 1
+				sscanf(line,"%lf\n", &d1) < 1
 				) {
 				error_msg("expected distance after \"setdistance\"");
 			}
-			distance = i1;
-			update_pdata(
-				pdata, center_x, center_y, center_z,
-				camera_x, camera_y, camera_z, distance
-				);
+			distance = d1;
+			perp = perp_matrix(center, view, distance);
 		}
 		else if (strcmp(line, "setct\n") == 0) {
 			if (fgets(line, 255, fp) == NULL) {
@@ -162,19 +158,21 @@ void parse(const char *name) {
 			segs = i1;
 		}
 		else if (strcmp(line, "display\n") == 0) {
-			s = make_screen(width, height);
-			draw_polygons(s, vlist, flist, pdata);
+			transform(vlist, peek(st));
+			draw_polygons(s, vlist, flist, perp, perspective);
+			clear_vlist(vlist);
+			clear_flist(flist);
 			display_png(s, color_type);
-			free_screen(s);
 		}
 		else if (strcmp(line, "save\n") == 0) {
 			if (fgets(line, 255, fp) == NULL) {
 				error_msg("expected file name after \"save\"");
 			}
-			s = make_screen(width, height);
-			draw_polygons(s, vlist, flist, pdata);
+			transform(vlist, peek(st));
+			draw_polygons(s, vlist, flist, perp, perspective);
+			clear_vlist(vlist);
+			clear_flist(flist);
 			make_png(line, s, color_type);
-			free_screen(s);
 		}
 		/*
 		else if (strcmp(line, "line\n") == 0) {
@@ -239,7 +237,6 @@ void parse(const char *name) {
 			}
 			add_box(vlist, flist, d1, d2, d3, d4, d5, d6, color);
 		}
-		/*
 		else if (strcmp(line, "sphere\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
@@ -247,8 +244,9 @@ void parse(const char *name) {
 				) {
 				error_msg("expected cx, cy, cz, r after \"sphere\"");
 			}
-			add_sphere(pm, d1, d2, d3, d4, segs, color);
+			add_sphere(vlist, flist, d1, d2, d3, d4, segs, color);
 		}
+		/*
 		else if (strcmp(line, "torus\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
@@ -261,8 +259,20 @@ void parse(const char *name) {
 			}
 			add_torus(pm, d1, d2, d3, d4, d5, segs, color);
 		}
-		else if (strcmp(line, "ident\n") == 0) {
-			transform = identity_matrix();
+		*/
+		else if (strcmp(line, "push\n") == 0) {
+			transform(vlist, peek(st));
+			draw_polygons(s, vlist, flist, perp, perspective);
+			clear_vlist(vlist);
+			clear_flist(flist);
+			push(st);
+		}
+		else if (strcmp(line, "pop\n") == 0) {
+			transform(vlist, peek(st));
+			draw_polygons(s, vlist, flist, perp, perspective);
+			clear_vlist(vlist);
+			clear_flist(flist);
+			pop(st);
 		}
 		else if (strcmp(line, "scale\n") == 0) {
 			if (
@@ -271,20 +281,16 @@ void parse(const char *name) {
 				) {
 				error_msg("expected sx, sy, sz after \"scale\"");
 			}
-			temp = scale_matrix(d1, d2, d3);
-			matrix_multiply(temp, transform);
-			free_matrix(temp);
+			scale(d1, d2, d3, peek(st));
 		}
 		else if (strcmp(line, "translate\n") == 0) {
 			if (
 				fgets(line, 255, fp) == NULL ||
 				sscanf(line,"%lf %lf %lf\n", &d1, &d2, &d3) < 3
 				) {
-				error_msg("expected tx, ty, tz after \"translate\"");
+				error_msg("expected i, j, k after \"translate\"");
 			}
-			temp = translation_matrix(d1, d2, d3);
-			matrix_multiply(temp, transform);
-			free_matrix(temp);
+			translate(d1, d2, d3, peek(st));
 		}
 		else if (strcmp(line, "xrotate\n") == 0) {
 			if (
@@ -293,9 +299,7 @@ void parse(const char *name) {
 				) {
 				error_msg("expected theta after \"xrotate\"");
 			}
-			temp = rotation_matrix_x(d1);
-			matrix_multiply(temp, transform);
-			free_matrix(temp);
+			rotate_x(d1, peek(st));
 		}
 		else if (strcmp(line, "yrotate\n") == 0) {
 			if (
@@ -304,9 +308,7 @@ void parse(const char *name) {
 				) {
 				error_msg("expected theta after \"yrotate\"");
 			}
-			temp = rotation_matrix_y(d1);
-			matrix_multiply(temp, transform);
-			free_matrix(temp);
+			rotate_y(d1, peek(st));
 		}
 		else if (strcmp(line, "zrotate\n") == 0) {
 			if (
@@ -315,17 +317,8 @@ void parse(const char *name) {
 				) {
 				error_msg("expected theta after \"zrotate\"");
 			}
-			temp = rotation_matrix_z(d1);
-			matrix_multiply(temp, transform);
-			free_matrix(temp);
+			rotate_y(d1, peek(st));
 		}
-		else if (strcmp(line, "apply\n") == 0) {
-			matrix_multiply(transform, pm->points);
-		}
-		else if (strcmp(line, "clear\n") == 0) {
-			clear_point_matrix(pm);
-		}
-		*/
 		else {
 			line[strlen(line) - 1] = '\0';
 			fprintf(stderr, "Parse error: invalid command (\"%s\")\n", line);

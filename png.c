@@ -284,10 +284,14 @@ void display_png(const screen s, char color_type) {
 	char name[] = "temp.png";
 	make_png(name, s, color_type);
 	#ifdef OS_WINDOWS
-	if (system("temp.png; rm temp.png") == -1) {
+	if (system("temp.png") == -1) {
 		perror("Display error (system)");
 		exit(EXIT_FAILURE);
-	}
+	}/*
+	if (system("rm temp.png") == -1) {
+		perror("Display error (system)");
+		exit(EXIT_FAILURE);
+	}*/
 	#else
 	int x, i;
 	i = fork();

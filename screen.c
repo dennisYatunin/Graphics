@@ -1,6 +1,7 @@
 #include "screen.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
 	return r << 24 | g << 16 | b << 8;
