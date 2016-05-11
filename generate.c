@@ -53,9 +53,10 @@ char first_pass() {
 }
 
 vary_node *second_pass() {
-	vary_node *knobs = (vary_node *) malloc(sizeof(vary_node) * num_frames);
+	vary_node *knobs =
+	(vary_node *) calloc(sizeof(struct vary_node_struct), num_frames);
 	if (knobs == NULL) {
-		perror("Second Pass error (malloc)");
+		perror("Second Pass error (calloc)");
 		exit(EXIT_FAILURE);
 	}
 
@@ -100,7 +101,7 @@ vary_node *second_pass() {
 			increment = (end_val - start_val) / num_vals;
 
 			for (frame = start_frame; frame <= end_frame; frame++){
-				knob = (vary_node) malloc(sizeof(vary_node));
+				knob = (vary_node) malloc(sizeof(struct vary_node_struct));
 				if (knob == NULL) {
 					perror("Second Pass error (malloc)");
 					exit(EXIT_FAILURE);
@@ -145,7 +146,7 @@ void generate( int polygons ) {
 	int frame, i, j; double temp;
 	for (frame = 0; frame < num_frames; frame++) {
 		if (num_frames > 1) {
-			for (vn = knobs[j]; vn != NULL; vn = vn->next) {
+			for (vn = knobs[frame]; vn != NULL; vn = vn->next) {
 				set_value(lookup_symbol(vn->name), vn->value);
 			}
 		}
@@ -221,7 +222,7 @@ void generate( int polygons ) {
 				else {
 					knob_value = op[i].op.scale.p->s.value;
 				}
-				translate(
+				scale(
 					op[i].op.scale.d[0] * knob_value,
 					op[i].op.scale.d[1] * knob_value,
 					op[i].op.scale.d[2] * knob_value,
@@ -288,8 +289,10 @@ void generate( int polygons ) {
 			}
 		}
 		if (num_frames > 1){
-			sprintf(frame_name, "anim/%s%03d.png", name, frame);
+			sprintf(frame_name, "%s%03d.png", name, frame);
 			make_png(frame_name, s, color_type);
+			clear_screen(s);
+			clear_stack(coord_systems);
 		}
 	}
 

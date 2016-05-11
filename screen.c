@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b) {
 	return r << 24 | g << 16 | b << 8;
@@ -34,6 +35,10 @@ screen make_screen(size_t width, size_t height) {
 void free_screen(screen s) {
 	free(s->data);
 	free(s);
+}
+
+void clear_screen(screen s) {
+	memset(s->data, 0, s->width * s->height * sizeof(uint32_t));
 }
 
 void plot(screen s, int32_t x, int32_t y, uint32_t color) {
