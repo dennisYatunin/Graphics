@@ -70,8 +70,9 @@ vertex *transformed_vertices(vertex_list vlist, matrix m) {
 }
 
 void transform(vertex_list vlist, matrix m) {
+	vertex *new_list = transformed_vertices(vlist, m);
 	free(vlist->list);
-	vlist->list = transformed_vertices(vlist, m);
+	vlist->list = new_list;
 }
 
 face_list new_flist(size_t max_num_faces) {
@@ -111,6 +112,45 @@ void add_face(face_list flist, size_t v0, size_t v1, size_t v2) {
 	face f;
 	f.v0 = v0; f.v1 = v1; f.v2 = v2;
 	flist->list[flist->size++] = f;
+}
+
+edge_list new_elist(size_t max_num_edges) {
+	edge_list elist = (edge_list) malloc(sizeof(struct edge_list_struct));
+	if (elist == NULL) {
+		perror("New EList error (malloc)");
+		exit(EXIT_FAILURE);
+	}
+	elist->size = 0;
+	elist->capacity = max_num_edges;
+	elist->list = (edge *) malloc(max_num_edges * sizeof(edge));
+	if (elist->list == NULL) {
+		perror("New EList error (malloc)");
+		exit(EXIT_FAILURE);
+	}
+	return elist;
+}
+
+void free_elist(edge_list elist) {
+	free(elist->list);
+	free(elist);
+}
+
+void clear_elist(edge_list elist) {
+	elist->size = 0;
+}
+
+void add_edge(edge_list elist, size_t v0, size_t v1) {
+	if (elist->size == elist->capacity) {
+		elist->capacity *= 2;
+		elist->list = realloc(elist->list, elist->capacity * sizeof(edge));
+		if (elist->list == NULL) {
+			perror("Add Edge error (realloc)");
+			exit(EXIT_FAILURE);
+		}
+	}
+	edge e;
+	e.v0 = v0; e.v1 = v1;
+	elist->list[elist->size++] = e;
 }
 
 void draw_line(
@@ -196,37 +236,51 @@ void draw_line(
 	}
 }
 
-void draw_polygons(
-	screen s, vertex_list vlist, face_list flist, matrix perp, char perspective
+char is_front_face(vertex v0, vertex v1, vertex v2) {
+	// Vector a points from v0 to v1, and vector b points from v0 to v2.
+	double a_x = v1.x - v0.x, a_y = v1.y - v0.y,
+	b_x = v2.x - v0.x, b_y = v2.y - v0.y;
+	// Since the eye is always looking down the z-axis (i.e. all visible points
+	// have negative z-coords) and the vertices are given in counter-clockwise
+	// order, a front face is a face such that the cross product of a and b
+	// points at the eye (i.e. has a positive z-component).
+	return a_x * b_y - a_y * b_x > 0;
+}
+
+void draw_faces(
+	screen s, vertex_list vlist, face_list flist,
+	vector center, vector eye, double distance
 	) {
 	size_t num_faces = flist->size;
 	face *faces = flist->list;
-	vertex *vertices = transformed_vertices(vlist, perp);
+	matrix display = display_matrix(center, eye);
+	vertex *vertices = transformed_vertices(vlist, display);
+	free(display);
 	face f;
 	vertex v0, v1, v2;
-	double a_x, a_z, b_x, b_z, cross_y;
-	if (perspective) {
+	if (distance) {
+		distance *= -1;
 		while (num_faces--) {
 			f = *faces++;
 			v0 = vertices[f.v0]; v1 = vertices[f.v1]; v2 = vertices[f.v2];
-			a_x = v1.x - v0.x; a_z = v1.z - v0.z;
-			b_x = v2.x - v0.x; b_z = v2.z - v0.z;
-			cross_y = a_z * b_x - a_x * b_z;
-			if (cross_y < 0) {
+			v0.x *= distance / v0.z; v0.y *= distance / v0.z;
+			v1.x *= distance / v1.z; v1.y *= distance / v1.z;
+			v2.x *= distance / v2.z; v2.y *= distance / v2.z;
+			if (is_front_face(v0, v1, v2)) {
 				draw_line(
 					s,
-					v0.x / v0.y, v0.z / v0.y, v0.color,
-					v1.x / v1.y, v1.z / v1.y, v1.color
+					(int32_t) v0.x, (int32_t) v0.y, v0.color,
+					(int32_t) v1.x, (int32_t) v1.y, v1.color
 					);
 				draw_line(
 					s,
-					v1.x / v1.y, v1.z / v1.y, v1.color,
-					v2.x / v2.y, v2.z / v2.y, v2.color
+					(int32_t) v1.x, (int32_t) v1.y, v1.color,
+					(int32_t) v2.x, (int32_t) v2.y, v2.color
 					);
 				draw_line(
 					s,
-					v2.x / v2.y, v2.z / v2.y, v2.color,
-					v0.x / v0.y, v0.z / v0.y, v0.color
+					(int32_t) v2.x, (int32_t) v2.y, v2.color,
+					(int32_t) v0.x, (int32_t) v0.y, v0.color
 					);
 			}
 		}
@@ -235,13 +289,22 @@ void draw_polygons(
 		while (num_faces--) {
 			f = *faces++;
 			v0 = vertices[f.v0]; v1 = vertices[f.v1]; v2 = vertices[f.v2];
-			a_x = v1.x - v0.x; a_z = v1.z - v0.z;
-			b_x = v2.x - v0.x; b_z = v2.z - v0.z;
-			cross_y = a_z * b_x - a_x * b_z;
-			if (cross_y < 0) {
-				draw_line(s, v0.x, v0.z, v0.color, v1.x, v1.z, v1.color);
-				draw_line(s, v1.x, v1.z, v1.color, v2.x, v2.z, v2.color);
-				draw_line(s, v2.x, v2.z, v2.color, v0.x, v0.z, v0.color);
+			if (is_front_face(v0, v1, v2)) {
+				draw_line(
+					s,
+					(int32_t) v0.x, (int32_t) v0.y, v0.color,
+					(int32_t) v1.x, (int32_t) v1.y, v1.color
+					);
+				draw_line(
+					s,
+					(int32_t) v1.x, (int32_t) v1.y, v1.color,
+					(int32_t) v2.x, (int32_t) v2.y, v2.color
+					);
+				draw_line(
+					s,
+					(int32_t) v2.x, (int32_t) v2.y, v2.color,
+					(int32_t) v0.x, (int32_t) v0.y, v0.color
+					);
 			}
 		}
 	}
@@ -365,6 +428,52 @@ void add_sphere(
 		first_index + half_step_count * steps + steps + 1,
 		first_index + half_step_count * steps + 1
 		);
+}
+
+void draw_edges(
+	screen s, vertex_list vlist, edge_list elist,
+	vector center, vector eye, double distance
+	) {
+	size_t num_edges = elist->size;
+	edge *edges = elist->list;
+	matrix display = display_matrix(center, eye);
+	vertex *vertices = transformed_vertices(vlist, display);
+	free(display);
+	edge e;
+	vertex v0, v1;
+	if (distance) {
+		distance *= -1;
+		while (num_edges--) {
+			e = *edges++;
+			v0 = vertices[e.v0]; v1 = vertices[e.v1];
+			draw_line(
+				s,
+				v0.x / v0.z * distance, v0.y / v0.z * distance, v0.color,
+				v1.x / v1.z * distance, v1.y / v1.z * distance, v1.color
+				);
+		}
+	}
+	else {
+		while (num_edges--) {
+			e = *edges++;
+			v0 = vertices[e.v0]; v1 = vertices[e.v1];
+			draw_line(s, v0.x, v0.y, v0.color, v1.x, v1.y, v1.color);
+		}
+	}
+	free(vertices);
+}
+
+void add_line(
+	vertex_list vlist, edge_list elist,
+	double x0, double y0, double z0, double x1, double y1, double z1,
+	uint32_t color
+	) {
+	size_t first_index = elist->size;
+
+	add_vertex(vlist, x0, y0, z0, color);
+	add_vertex(vlist, x1, y1, z1, color);
+
+	add_edge(elist, first_index, first_index + 1);
 }
 
 /*

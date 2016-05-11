@@ -37,7 +37,12 @@ void free_screen(screen s) {
 }
 
 void plot(screen s, int32_t x, int32_t y, uint32_t color) {
-	if (x >= 0 && x < s->width && y >= 0 && y < s->height) {
-		s->data[s->width * (s->height - y - 1) + x] = color;
+	int32_t width = (int32_t) s->width, height = (int32_t) s->height;
+	if (
+		x > -width / 2 && x <= width / 2 && y > -height / 2 && y <= height / 2
+		) {
+		s->data[
+			width * (height - y - (height - 1) / 2 - 1) + x + (width - 1) / 2
+			] = color;
 	}
 }

@@ -1,9 +1,30 @@
-#include "coords.h"
+#include "matrix.h"
 
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+vector new_vector(double x, double y, double z) {
+	vector result;
+	result.x = x; result.y = y; result.z = z;
+	return result;
+}
+
+void print_matrix(matrix m) {
+	printf(
+		"-                           -\n"
+		"|%6.2lf %6.2lf %6.2lf %6.2lf|\n"
+		"|%6.2lf %6.2lf %6.2lf %6.2lf|\n"
+		"|%6.2lf %6.2lf %6.2lf %6.2lf|\n"
+		"|%6.2lf %6.2lf %6.2lf %6.2lf|\n"
+		"-                           -\n",
+		m[0],  m[1],  m[2],  m[3],
+		m[4],  m[5],  m[6],  m[7],
+		m[8],  m[9],  m[10], m[11],
+		m[12], m[13], m[14], m[15]
+		);
+}
 
 matrix new_matrix() {
 	matrix m = (matrix) malloc(16 * sizeof(double));
@@ -15,18 +36,17 @@ matrix new_matrix() {
 }
 
 matrix mat_mat_multiply(matrix m1, matrix m2) {
-	matrix m = new_matrix(), m_cpy = m, m1_cpy = m1;
+	matrix m = new_matrix(), m_cpy = m;
 	double a, b, c, d;
-	int i = 0;
-	while (i < 16) {
-		a = *m1++; b = *m1++; c = *m1++; d = *m1++;
-		*m++ = a * m2[0] + b * m2[4] + c * m2[8]  + d * m2[12];
-		*m++ = a * m2[1] + b * m2[5] + c * m2[9]  + d * m2[13];
-		*m++ = a * m2[2] + b * m2[6] + c * m2[10] + d * m2[14];
-		*m++ = a * m2[3] + b * m2[7] + c * m2[11] + d * m2[15];
-		i += 4;
+	int row = 0;
+	while (row++ < 4) {
+		a = *m2++; b = *m2++; c = *m2++; d = *m2++;
+		*m++ = a * m1[0] + b * m1[4] + c * m1[8]  + d * m1[12];
+		*m++ = a * m1[1] + b * m1[5] + c * m1[9]  + d * m1[13];
+		*m++ = a * m1[2] + b * m1[6] + c * m1[10] + d * m1[14];
+		*m++ = a * m1[3] + b * m1[7] + c * m1[11] + d * m1[15];
 	}
-	free(m1_cpy);
+	free(m1);
 	return m_cpy;
 }
 
@@ -120,115 +140,89 @@ void rotate_z(double theta, matrix m) {
 	free(temp);
 }
 
-matrix perp_matrix(vector center, vector view, double distance) {
-	if (distance == 0) {
-		fprintf(stderr, "Perp Matrix error: distance must be nonzero\n");
-	}
+matrix display_matrix(vector center, vector eye) {
+	double etoc_x = center.x - eye.x,
+	etoc_y = center.y - eye.y,
+	etoc_z = center.z - eye.z;
 
-	double square_xy = view.x * view.x + view.y * view.y;
-	double radius_xyz = sqrt(square_xy + view.z * view.z);
-	if (radius_xyz == 0) {
+	if (etoc_x == 0 && etoc_y == 0 && etoc_z == 0) {
 		fprintf(
-			stderr, "Perp Matrix error: view vector must be nonzero\n"
+			stderr, "Display Matrix error: "
+			"center and eye vectors must be different\n"
 			);
 	}
 
+	double square_xy = etoc_x * etoc_x + etoc_y * etoc_y;
+
+	/*
+		Determine sin_1 and cos_1 such that, when the matrix
+		mat_mat_multiply(
+			rotation_matrix_z(atan2(sin_1, cos_1) * 180 / M_PI),
+			translation_matrix(-eye.x, -eye.y, -eye.z)
+			)
+		is multiplied by the center vector, the new vector lies in the yz-plane.
+	*/
 	double radius_xy, sin_1, cos_1;
 	if (square_xy) {
 		radius_xy = sqrt(square_xy);
-		sin_1 = view.x / radius_xy;
-		cos_1 = view.y / radius_xy;
+		cos_1 = etoc_y / radius_xy;
+		sin_1 = etoc_x / radius_xy;
 	}
-	else { // view vector points along z-axis
+	else {
+		// etoc vector points along the z-axis, so atan2(sin_1, cos_1) is
+		// arbitrarily made equal to 0 (thus avoiding a division by 0)
 		radius_xy = 0;
-		sin_1 = 0;
 		cos_1 = 1;
+		sin_1 = 0;
 	}
 
-	double sin_2 = view.z / radius_xyz;
-	double cos_2 = radius_xy / radius_xyz;
+	/*
+		Determine sin_2 and cos_2 such that, when the matrix
+		mat_mat_multiply(
+			rotation_matrix_x(atan2(sin_2, cos_2) * 180 / M_PI),
+			mat_mat_multiply(
+				rotation_matrix_z(atan2(sin_1, cos_1) * 180 / M_PI),
+				translation_matrix(-eye.x, -eye.y, -eye.z)
+				)
+			)
+		is multiplied by the center vector, the new vector is antiparallel to
+		the z-axis.
+	*/
+	double radius_xyz = sqrt(square_xy + etoc_z * etoc_z);
+	double cos_2 = -etoc_z / radius_xyz;
+	double sin_2 = radius_xy / radius_xyz;
 
-	// pre-computed matrix for:
-	// scale(
-	// 	1, distance, 1, rotate_x(
-	// 		atan(sin_2/cos_2),
-	// 		rotate_z(
-	// 			atan(sin_1/cos_1),
-	// 			translate(
-	// 				-center.x,-center.y,-center.z,
-	// 				identity_matrix()
-	// 				)
-	// 			)
-	// 		)
-	// 	)
+	/*
+		Let m be the matrix
+		mat_mat_multiply(
+			rotation_matrix_x(atan2(sin_2, cos_2) * 180 / M_PI),
+			mat_mat_multiply(
+				rotation_matrix_z(atan2(sin_1, cos_1) * 180 / M_PI),
+				translation_matrix(-eye.x, -eye.y, -eye.z)
+				)
+			).
 
+		This matrix will change the coordinate system so that the eye is at the
+		origin and the vector toward the center is antiparallel to the z-axis.
+		In this new system, the z-coord of a point is the negative of that
+		point's "depth" (its distance from the eye).
+	*/
 	matrix m = new_matrix(), m_cpy = m;
 	*m++ = cos_1;
-	*m++ = -sin_1;
+	*m++ = sin_1;
 	*m++ = 0;
-	*m++ = -cos_1 * center.x + sin_1 * center.y;
-	*m++ = distance * cos_2 * sin_1;
-	*m++ = distance * cos_2 * cos_1;
-	*m++ = distance * sin_2;
-	*m++ = distance * (
-		-cos_2 * sin_1 * center.x - cos_2 * cos_1 * center.y - sin_2 * center.z
-		);
-	*m++ = -sin_2 * sin_1;
+	*m++ = -cos_1 * eye.x - sin_1 * eye.y;
+	*m++ = -cos_2 * sin_1;
+	*m++ = cos_2 * cos_1;
+	*m++ = sin_2;
+	*m++ = cos_2 * sin_1 * eye.x - cos_2 * cos_1 * eye.y - sin_2 * eye.z;
+	*m++ = sin_2 * sin_1;
 	*m++ = -sin_2 * cos_1;
 	*m++ = cos_2;
-	*m++ =
-	sin_2 * sin_1 * center.x + sin_2 * cos_1 * center.y - cos_2 * center.z;
-	*m++ = 0; *m++ = 0; *m++ = 0; *m   = 1;
+	*m++ = -sin_2 * sin_1 * eye.x + sin_2 * cos_1 * eye.y - cos_2 * eye.z;
+	*m++ = 0;
+	*m++ = 0;
+	*m++ = 0;
+	*m++ = 1;
 	return m_cpy;
-}
-
-stack new_stack(size_t max_num_matrices) {
-	stack st = (stack) malloc(sizeof(struct stack_struct));
-	if (st == NULL) {
-		perror("New Stack error (malloc)");
-		exit(EXIT_FAILURE);
-	}
-	st->size = 0;
-	st->capacity = max_num_matrices;
-	st->matrices = (matrix *) malloc(max_num_matrices * sizeof(matrix));
-	if (st->matrices == NULL) {
-		perror("New Stack error (malloc)");
-		exit(EXIT_FAILURE);
-	}
-	st->matrices[st->size++] = identity_matrix();
-	return st;
-}
-
-void clear_stack(stack st) {
-	int counter = st->size;
-	while (counter > 1) {
-		free(st->matrices[counter--]);
-	}
-	st->size = 1;
-}
-
-void push(stack st) {
-	if (st->size == st->capacity) {
-		st->capacity *= 2;
-		st->matrices = realloc(st->matrices, st->capacity * sizeof(matrix));
-		if (st->matrices == NULL) {
-			perror("Push error (realloc)");
-			exit(EXIT_FAILURE);
-		}
-	}
-	matrix m = new_matrix();
-	memcpy(m, st->matrices[st->size - 1], 16 * sizeof(double));
-	st->matrices[st->size++] = m;
-}
-
-void pop(stack st) {
-	if (st->size == 1) {
-		fprintf(stderr, "Pop error: cannot pop primary matrix\n");
-		exit(EXIT_FAILURE);
-	}
-	free(st->matrices[--st->size]);
-}
-
-matrix peek(stack st) {
-	return st->matrices[st->size - 1];
 }
