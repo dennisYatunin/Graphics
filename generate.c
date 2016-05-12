@@ -140,8 +140,8 @@ void generate( int polygons ) {
 	edge_list elist = new_elist(100);
 	stack coord_systems = new_stack(5);
 	vector center = new_vector(0, 0, 0);
-	vector eye = new_vector(0, 0, 1000);
-	double distance = 600;
+	vector eye = new_vector(0, 0, 200);
+	double distance = 200;
 
 	int frame, i, j; double temp;
 	for (frame = 0; frame < num_frames; frame++) {
@@ -289,7 +289,7 @@ void generate( int polygons ) {
 			}
 		}
 		if (num_frames > 1){
-			sprintf(frame_name, "%s%03d.png", name, frame);
+			sprintf(frame_name, "anim/%s%03d.png", name, frame);
 			make_png(frame_name, s, color_type);
 			clear_screen(s);
 			clear_stack(coord_systems);

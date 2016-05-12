@@ -16,6 +16,7 @@ HEADERS = $(SOURCES:.c=.h)
 
 $(RESULT): lex.yy.c y.tab.c y.tab.h $(OBJECTS)
 	gcc -o $@ lex.yy.c y.tab.c $(OBJECTS) -lm
+	mkdir anim
 
 lex.yy.c: mdl.l y.tab.h
 	flex -I mdl.l
@@ -26,12 +27,16 @@ y.tab.c: mdl.y symtab.h parser.h
 y.tab.h: mdl.y
 	bison -d -y mdl.y
 
-.PHONY: clean run
+.PHONY: clean run convert
 
 clean:
 	-rm $(OBJECTS) $(RESULT)
-	-rm *.png
+	-rm -r anim
+	-rm *.gif
 	-rm lex.yy.c y.tab.c y.tab.h
 
 run:
 	./$(RESULT) $(INPUT)
+
+convert:
+	convert anim/*.png -set delay 10 -reverse anim/*.png -set delay 10 -loop 0 animation.gif

@@ -236,6 +236,39 @@ void draw_line(
 	}
 }
 
+void draw_line_perspective(screen s, vertex v0, vertex v1) {
+	if (v0.z < 0 && v1.z < 0) {
+		draw_line(s, v0.x, v0.y, v0.color, v1.x, v1.y, v1.color);
+		return;
+	}
+
+	if (v0.z >= 0 && v1.z >= 0) {
+		return;
+	}
+
+	if (v0.z >= 0) {
+		double factor = -v1.z / (v0.z - v1.z) * 0.99999999;
+		// multiply by 0.99999999 to avoid making the new v0.z being 0
+		draw_line(
+			s,
+			factor * v0.x + (1 - factor) * v1.x,
+			factor * v0.y + (1 - factor) * v1.y, v0.color,
+			v1.x, v1.y, v1.color
+			);
+	}
+
+	else {
+		double factor = -v0.z / (v1.z - v0.z) * 0.99999999;
+		// multiply by 0.99999999 to avoid making the new v1.z being 0
+		draw_line(
+			s,
+			v0.x, v0.y, v0.color,
+			(1 - factor) * v0.x + factor * v1.x,
+			(1 - factor) * v0.y + factor * v1.y, v1.color
+			);
+	}
+}
+
 char is_front_face(vertex v0, vertex v1, vertex v2) {
 	// Vector a points from v0 to v1, and vector b points from v0 to v2.
 	double a_x = v1.x - v0.x, a_y = v1.y - v0.y,
@@ -259,29 +292,28 @@ void draw_faces(
 	face f;
 	vertex v0, v1, v2;
 	if (distance) {
-		distance *= -1;
+		int num_vertices = vlist->size, cur_vertex = 0;
+		double depths[num_vertices], scale_factor;
+		vertex *vertices_cpy = vertices;
+		while (cur_vertex < num_vertices) {
+			if (vertices_cpy->z < 0) {
+				scale_factor = -distance / vertices_cpy->z;
+			}
+			else {
+				scale_factor = distance / vertices_cpy->z;
+			}
+			vertices_cpy->x *= scale_factor;
+			vertices_cpy->y *= scale_factor;
+			vertices_cpy++;
+			cur_vertex++;
+		}
 		while (num_faces--) {
 			f = *faces++;
 			v0 = vertices[f.v0]; v1 = vertices[f.v1]; v2 = vertices[f.v2];
-			v0.x *= distance / v0.z; v0.y *= distance / v0.z;
-			v1.x *= distance / v1.z; v1.y *= distance / v1.z;
-			v2.x *= distance / v2.z; v2.y *= distance / v2.z;
 			if (is_front_face(v0, v1, v2)) {
-				draw_line(
-					s,
-					(int32_t) v0.x, (int32_t) v0.y, v0.color,
-					(int32_t) v1.x, (int32_t) v1.y, v1.color
-					);
-				draw_line(
-					s,
-					(int32_t) v1.x, (int32_t) v1.y, v1.color,
-					(int32_t) v2.x, (int32_t) v2.y, v2.color
-					);
-				draw_line(
-					s,
-					(int32_t) v2.x, (int32_t) v2.y, v2.color,
-					(int32_t) v0.x, (int32_t) v0.y, v0.color
-					);
+				draw_line_perspective(s, v0, v1);
+				draw_line_perspective(s, v1, v2);
+				draw_line_perspective(s, v2, v0);
 			}
 		}
 	}
@@ -290,21 +322,9 @@ void draw_faces(
 			f = *faces++;
 			v0 = vertices[f.v0]; v1 = vertices[f.v1]; v2 = vertices[f.v2];
 			if (is_front_face(v0, v1, v2)) {
-				draw_line(
-					s,
-					(int32_t) v0.x, (int32_t) v0.y, v0.color,
-					(int32_t) v1.x, (int32_t) v1.y, v1.color
-					);
-				draw_line(
-					s,
-					(int32_t) v1.x, (int32_t) v1.y, v1.color,
-					(int32_t) v2.x, (int32_t) v2.y, v2.color
-					);
-				draw_line(
-					s,
-					(int32_t) v2.x, (int32_t) v2.y, v2.color,
-					(int32_t) v0.x, (int32_t) v0.y, v0.color
-					);
+				draw_line(s, v0.x, v0.y, v0.color, v1.x, v1.y, v1.color);
+				draw_line(s, v1.x, v1.y, v1.color, v2.x, v2.y, v2.color);
+				draw_line(s, v2.x, v2.y, v2.color, v0.x, v0.y, v0.color);
 			}
 		}
 	}
@@ -446,11 +466,9 @@ void draw_edges(
 		while (num_edges--) {
 			e = *edges++;
 			v0 = vertices[e.v0]; v1 = vertices[e.v1];
-			draw_line(
-				s,
-				v0.x / v0.z * distance, v0.y / v0.z * distance, v0.color,
-				v1.x / v1.z * distance, v1.y / v1.z * distance, v1.color
-				);
+			v0.x *= distance / v0.z; v0.y *= distance / v0.z;
+			v1.x *= distance / v1.z; v1.y *= distance / v1.z;
+			draw_line_perspective(s, v0, v1);
 		}
 	}
 	else {

@@ -795,7 +795,7 @@ int main(int argc, char **argv)
 	}
 
 	yyparse();
-	print_pcode();
+	//print_pcode();
 	generate();
 
 	return 0;
