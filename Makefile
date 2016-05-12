@@ -1,6 +1,6 @@
 RESULT = mdl
 SOURCES = generate.c symtab.c print_pcode.c draw.c stack.c matrix.c screen.c png.c
-INPUT = robot.mdl
+INPUT = animate.mdl
 
 ifeq ($(OS), Windows_NT)
 	RESULT := $(RESULT).exe
