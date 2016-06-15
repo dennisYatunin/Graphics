@@ -11,6 +11,7 @@ typedef struct screen_struct {
 	size_t width;
 	size_t height;
 	uint32_t *data;
+	double *z_buf;
 } *screen;
 
 screen make_screen(size_t width, size_t height);
@@ -19,6 +20,6 @@ void free_screen(screen s);
 
 void clear_screen(screen s);
 
-void plot(screen s, int32_t x, int32_t y, uint32_t color);
+void plot(screen s, int32_t x, int32_t y, double z, uint32_t color);
 
 #endif

@@ -17,8 +17,8 @@ struct command
 	union
 	{
 		struct {
-			SYMTAB *p;
-			double c[4];
+			double l[3];
+			double c[3];
 		} light;
 		struct {
 			double c[4];
@@ -43,8 +43,8 @@ struct command
 			SYMTAB *constants;
 			double d0[3];
 			double d1[3];
-			double d2[3];
-			double d3[3];
+			double d2[4];
+			double d3[4];
 			SYMTAB *p;
 			SYMTAB *cs;
 		} texture;

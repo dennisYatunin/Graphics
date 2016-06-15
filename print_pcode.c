@@ -13,8 +13,7 @@ void print_pcode()
 		switch (op[i].opcode)
 		{
 			case LIGHT:
-			printf("Light: %s at: %6.2f %6.2f %6.2f",
-				op[i].op.light.p->name,
+			printf("Light at: %6.2f %6.2f %6.2f",
 				op[i].op.light.c[0], op[i].op.light.c[1],
 				op[i].op.light.c[2]);
 			break;

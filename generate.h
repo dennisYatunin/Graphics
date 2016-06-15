@@ -16,4 +16,7 @@ void process_knobs();
 char first_pass();
 vary_node *second_pass();
 
+#define GOROUD 0
+#define WIRE 1
+
 #endif

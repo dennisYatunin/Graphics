@@ -31,7 +31,8 @@ void clear_vlist(vertex_list vlist) {
 }
 
 void add_vertex(
-	vertex_list vlist, double x, double y, double z, uint32_t color
+	vertex_list vlist, double x, double y, double z,
+	double nx, double ny, double nz, vertex text0, vertex text1
 	) {
 	if (vlist->size == vlist->capacity) {
 		vlist->capacity *= 2;
@@ -42,8 +43,42 @@ void add_vertex(
 		}
 	}
 	vertex v;
-	v.x = x; v.y = y; v.z = z; v.color = color;
+	v.x = x; v.y = y; v.z = z; v.nx = nx; v.ny = ny; v.nz = nz;
+	double coef = (
+		(x - text0.x) * text0.nx +
+		(y - text0.y) * text0.ny +
+		(z - text0.z) * text0.nz
+		) / text1.nx;
+	if (coef < 0) {
+		coef = 0;
+	}
+	if (coef > 1) {
+		coef = 1;
+	}
+	v.shine = (1 - coef) * text0.shine + coef * text1.shine;
+	v.color = rgb(
+		(uint8_t) (
+			(1 - coef) * (text0.color >> 24) +
+			coef * (text1.color >> 24)
+			),
+		(uint8_t) (
+			(1 - coef) * (text0.color << 8 >> 24) +
+			coef * (text1.color << 8 >> 24)
+			),
+		(uint8_t) (
+			(1 - coef) * (text0.color << 16 >> 24) +
+			coef * (text1.color << 16 >> 24)
+			)
+		);
 	vlist->list[vlist->size++] = v;
+}
+
+vector transformed_vector(vector v, matrix m) {
+	vector new_v;
+	new_v.x = v.x * *m++ + v.y * *m++ + v.z * *m++ + *m++;
+	new_v.y = v.x * *m++ + v.y * *m++ + v.z * *m++ + *m++;
+	new_v.z = v.x * *m++ + v.y * *m++ + v.z * *m++ + *m;
+	return new_v;
 }
 
 vertex *transformed_vertices(vertex_list vlist, matrix m) {
@@ -60,9 +95,23 @@ vertex *transformed_vertices(vertex_list vlist, matrix m) {
 	while (counter--) {
 		old_v = *old_list++;
 		m = m_copy;
-		new_v.x = old_v.x * *m++ + old_v.y * *m++ + old_v.z * *m++ + *m++;
-		new_v.y = old_v.x * *m++ + old_v.y * *m++ + old_v.z * *m++ + *m++;
-		new_v.z = old_v.x * *m++ + old_v.y * *m++ + old_v.z * *m++ + *m;
+
+		new_v.x = old_v.x * *m; new_v.nx = old_v.nx * *m++;
+		new_v.x += old_v.y * *m; new_v.nx += old_v.ny * *m++;
+		new_v.x += old_v.z * *m; new_v.nx += old_v.nz * *m++;
+		new_v.x += *m++;
+
+		new_v.y = old_v.x * *m; new_v.ny = old_v.nx * *m++;
+		new_v.y += old_v.y * *m; new_v.ny += old_v.ny * *m++;
+		new_v.y += old_v.z * *m; new_v.ny += old_v.nz * *m++;
+		new_v.y += *m++;
+
+		new_v.z = old_v.x * *m; new_v.nz = old_v.nx * *m++;
+		new_v.z += old_v.y * *m; new_v.nz += old_v.ny * *m++;
+		new_v.z += old_v.z * *m; new_v.nz += old_v.nz * *m++;
+		new_v.z += *m;
+
+		new_v.shine = old_v.shine;
 		new_v.color = old_v.color;
 		*new_list++ = new_v;
 	}
@@ -153,118 +202,320 @@ void add_edge(edge_list elist, size_t v0, size_t v1) {
 	elist->list[elist->size++] = e;
 }
 
-void draw_line(
-	screen s,
-	int32_t x0, int32_t y0, uint32_t color0,
-	int32_t x1, int32_t y1, uint32_t color1
+void draw_pixel(
+	screen s, int32_t x, int32_t y, double z,
+	uint32_t point_color, double point_shine,
+	uint32_t amb_color, uint32_t light_color, vector point_to_source,
+	vector normal, vector point_to_eye, vector reflected,
+	double amb_ref_constant, double diff_ref_constant, double spec_ref_constant
 	) {
-	int32_t dx = abs(x1 - x0);
-	int32_t dy = abs(y1 - y0);
+	double r = amb_ref_constant *
+	(point_color >> 24) * (amb_color >> 24) / 0xFF;
+	double g = amb_ref_constant *
+	(point_color << 8 >> 24) * (amb_color << 8 >> 24) / 0xFF;
+	double b = amb_ref_constant *
+	(point_color << 16 >> 24) * (amb_color << 16 >> 24) / 0xFF;
 
-	int32_t x_step = x0 < x1 ? 1 : -1;
-	int32_t y_step = y0 < y1 ? 1 : -1;
+	double coef = diff_ref_constant * (
+		point_to_source.x * normal.x +
+		point_to_source.y * normal.y +
+		point_to_source.z * normal.z
+		);
+	r += coef * (point_color >> 24) * (light_color >> 24) / 0xFF;
+	g += coef * (point_color << 8 >> 24) * (light_color << 8 >> 24) / 0xFF;
+	b += coef * (point_color << 16 >> 24) * (light_color << 16 >> 24) / 0xFF;
 
-	int32_t error = (dx > dy ? dx : -dy) / 2;
-	int32_t original_error;
-	if (color0 == color1) {
-		while (1) {
-			plot(s, x0, y0, color0);
-			if (x0 == x1 && y0 == y1) {
-				return;
-			}
-			original_error = error;
-			if (original_error > -dx) {
-				error -= dy;
-				x0 += x_step;
-			}
-			if (original_error < dy) {
-				error += dx;
-				y0 += y_step;
-			}
-		}
+	coef = spec_ref_constant * pow(
+		-point_to_eye.x * reflected.x +
+		-point_to_eye.y * reflected.y +
+		-point_to_eye.z * reflected.z,
+		-point_shine
+		) / 9000;
+	if (coef > 1) {
+		coef = 1;
 	}
-	// this could probably be done more efficiently, but I'm too lazy
-	else {
-		int32_t error_copy = error, x0_copy = x0, y0_copy = y0;
-		size_t num_steps = 0;
-		int8_t r0 = (int8_t) (color0 >> 24 & 0xFF);
-		int8_t dr = (int8_t) (color1 >> 24 & 0xFF) - r0;
-		int8_t g0 = (int8_t) (color0 >> 16 & 0xFF);
-		int8_t dg = (int8_t) (color1 >> 16 & 0xFF) - g0;
-		int8_t b0 = (int8_t) (color0 >> 8  & 0xFF);
-		int8_t db = (int8_t) (color1 >> 8  & 0xFF) - b0;
-		int8_t a0 = (int8_t) (color0       & 0xFF);
-		int8_t da = (int8_t) (color1       & 0xFF) - a0;
-		while (1) {
-			num_steps++;
-			if (x0_copy == x1 && y0_copy == y1) {
-				num_steps--;
-				break;
+	else if (coef < 0) {
+		coef = 1;
+	}
+	r += coef * (point_color >> 24) * (light_color >> 24) / 0xFF;
+	g += coef * (point_color << 8 >> 24) * (light_color << 8 >> 24) / 0xFF;
+	b += coef * (point_color << 16 >> 24) * (light_color << 16 >> 24) / 0xFF;
+	plot(
+		s, x, y, z,
+		rgb(
+			((uint8_t) min(0xFF, r)),
+			((uint8_t) min(0xFF, g)),
+			((uint8_t) min(0xFF, b))
+			)
+		);
+}
+
+void scanline_fill_half(
+	screen s, int32_t start_y, int32_t end_y,
+	vertex l_edge_top_vertex, vertex l_edge_bot_vertex,
+	vertex r_edge_top_vertex, vertex r_edge_bot_vertex,
+	uint32_t amb_color, uint32_t light_color, vector light_source, vector eye,
+	double amb_ref_constant, double diff_ref_constant, double spec_ref_constant,
+	char perspective
+	) {
+	int32_t y, x, start_x, end_x;
+	uint32_t start_color, end_color;
+	double start_shine, end_shine, coef0, coef1, z, start_z, end_z, mag;
+	vector start_normal, end_normal, point_to_source, normal, point_to_eye,
+	reflected;
+
+	for (y = start_y; y < end_y; y++) {
+		coef0 =
+		(y - l_edge_top_vertex.y) / (l_edge_bot_vertex.y - l_edge_top_vertex.y);
+		coef1 =
+		(y - r_edge_top_vertex.y) / (r_edge_bot_vertex.y - r_edge_top_vertex.y);
+
+		start_z = l_edge_top_vertex.z +
+		coef0 * (l_edge_bot_vertex.z - l_edge_top_vertex.z);
+		end_z = r_edge_top_vertex.z +
+		coef1 * (r_edge_bot_vertex.z - r_edge_top_vertex.z);
+
+		if (perspective == PERSPECTIVE_ON && start_z > 0 && end_z > 0) {
+			continue;
+		}
+
+		start_x = (int32_t) (
+			l_edge_top_vertex.x +
+			coef0 * (l_edge_bot_vertex.x - l_edge_top_vertex.x)
+			);
+		end_x = (int32_t) (
+			r_edge_top_vertex.x +
+			coef1 * (r_edge_bot_vertex.x - r_edge_top_vertex.x)
+			);
+
+		if (perspective == PERSPECTIVE_ON) {
+			if (start_z > 0) {
+				double factor = -end_z / (start_z - end_z);
+				start_x = (int32_t) (
+					factor * start_x + (1 - factor) * end_x
+					);
 			}
-			original_error = error;
-			if (original_error > -dx) {
-				error_copy -= dy;
-				x0_copy += x_step;
-			}
-			if (original_error < dy) {
-				error_copy += dx;
-				y0_copy += y_step;
+			else if (end_z > 0) {
+				double factor = -start_z / (end_z - start_z);
+				end_x = (int32_t) (
+					factor * end_x + (1 - factor) * start_x
+					);
 			}
 		}
-		size_t num_steps_copy = 0;
-		while (1) {
-			plot(s, x0, y0,
-				(uint8_t) (r0 + dr * num_steps_copy / num_steps) << 24 |
-				(uint8_t) (g0 + dg * num_steps_copy / num_steps) << 16 |
-				(uint8_t) (b0 + db * num_steps_copy / num_steps) << 8  |
-				(uint8_t) (a0 + da * num_steps_copy / num_steps)
+
+		start_color = rgb(
+			(uint8_t) (
+				(l_edge_top_vertex.color >> 24) + coef0 *
+				(
+					1. * (l_edge_bot_vertex.color >> 24) -
+					(l_edge_top_vertex.color >> 24)
+					)
+				),
+			(uint8_t) (
+				(l_edge_top_vertex.color << 8 >> 24) + coef0 *
+				(
+					1. * (l_edge_bot_vertex.color << 8 >> 24) -
+					(l_edge_top_vertex.color << 8 >> 24)
+					)
+				),
+			(uint8_t) (
+				(l_edge_top_vertex.color << 16 >> 24) + coef0 *
+				(
+					1. * (l_edge_bot_vertex.color << 16 >> 24) -
+					(l_edge_top_vertex.color << 16 >> 24)
+					)
+				)
+			);
+
+		end_color = rgb(
+			(uint8_t) (
+				(r_edge_top_vertex.color >> 24) + coef1 *
+				(
+					1. * (r_edge_bot_vertex.color >> 24) -
+					(r_edge_top_vertex.color >> 24)
+					)
+				),
+			(uint8_t) (
+				(r_edge_top_vertex.color << 8 >> 24) + coef1 *
+				(
+					1. * (r_edge_bot_vertex.color << 8 >> 24) -
+					(r_edge_top_vertex.color << 8 >> 24)
+					)
+				),
+			(uint8_t) (
+				(r_edge_top_vertex.color << 16 >> 24) + coef1 *
+				(
+					1. * (r_edge_bot_vertex.color << 16 >> 24) -
+					(r_edge_top_vertex.color << 16 >> 24)
+					)
+				)
+			);
+
+		start_shine = l_edge_top_vertex.shine +
+		coef0 * (l_edge_bot_vertex.shine - l_edge_top_vertex.shine);
+		end_shine = r_edge_top_vertex.shine +
+		coef1 * (r_edge_bot_vertex.shine - r_edge_top_vertex.shine);
+
+		start_normal.x = l_edge_top_vertex.nx +
+		coef0 * (l_edge_bot_vertex.nx - l_edge_top_vertex.nx);
+		start_normal.y = l_edge_top_vertex.ny +
+		coef0 * (l_edge_bot_vertex.ny - l_edge_top_vertex.ny);
+		start_normal.z = l_edge_top_vertex.nz +
+		coef0 * (l_edge_bot_vertex.nz - l_edge_top_vertex.nz);
+		mag = sqrt(
+			start_normal.x * start_normal.x +
+			start_normal.y * start_normal.y +
+			start_normal.z * start_normal.z
+			);
+		start_normal.x /= mag;
+		start_normal.y /= mag;
+		start_normal.z /= mag;
+
+		end_normal.x = r_edge_top_vertex.nx +
+		coef1 * (r_edge_bot_vertex.nx - r_edge_top_vertex.nx);
+		end_normal.y = r_edge_top_vertex.ny +
+		coef1 * (r_edge_bot_vertex.ny - r_edge_top_vertex.ny);
+		end_normal.z = r_edge_top_vertex.nz +
+		coef1 * (r_edge_bot_vertex.nz - r_edge_top_vertex.nz);
+		mag = sqrt(
+			end_normal.x * end_normal.x +
+			end_normal.y * end_normal.y +
+			end_normal.z * end_normal.z
+			);
+		end_normal.x /= mag;
+		end_normal.y /= mag;
+		end_normal.z /= mag;
+
+		for (x = start_x; x < end_x; x++) {
+			coef0 = 1. * (x - start_x) / (end_x - start_x);
+			z = start_z + coef0 * (end_z - start_z);
+
+			point_to_source.x = light_source.x - x;
+			point_to_source.y = light_source.y - y;
+			point_to_source.z = light_source.z - z;
+			mag = sqrt(
+				point_to_source.x * point_to_source.x +
+				point_to_source.y * point_to_source.y +
+				point_to_source.z * point_to_source.z
 				);
-			num_steps_copy++;
-			if (x0 == x1 && y0 == y1) {
-				return;
-			}
-			original_error = error;
-			if (original_error > -dx) {
-				error -= dy;
-				x0 += x_step;
-			}
-			if (original_error < dy) {
-				error += dx;
-				y0 += y_step;
-			}
+			point_to_source.x /= mag;
+			point_to_source.y /= mag;
+			point_to_source.z /= mag;
+
+			normal.x = start_normal.x + coef0 * (end_normal.x - start_normal.x);
+			normal.y = start_normal.y + coef0 * (end_normal.y - start_normal.y);
+			normal.z = start_normal.z + coef0 * (end_normal.z - start_normal.z);
+			mag = sqrt(
+				normal.x * normal.x +
+				normal.y * normal.y +
+				normal.z * normal.z
+				);
+			normal.x /= mag;
+			normal.y /= mag;
+			normal.z /= mag;
+
+			point_to_eye.x = -x;
+			point_to_eye.y = -y;
+			point_to_eye.z = -z;
+			mag = sqrt(
+				point_to_eye.x * point_to_eye.x +
+				point_to_eye.y * point_to_eye.y +
+				point_to_eye.z * point_to_eye.z
+				);
+			point_to_eye.x /= mag;
+			point_to_eye.y /= mag;
+			point_to_eye.z /= mag;
+
+			coef1 = 2 * (
+				point_to_source.x * normal.x +
+				point_to_source.y * normal.y +
+				point_to_source.z * normal.z
+				);
+			reflected.x = coef1 * normal.x - point_to_source.x;
+			reflected.y = coef1 * normal.y - point_to_source.y;
+			reflected.z = coef1 * normal.z - point_to_source.z;
+			mag = sqrt(
+				reflected.x * reflected.x +
+				reflected.y * reflected.y +
+				reflected.z * reflected.z
+				);
+			reflected.x /= mag;
+			reflected.y /= mag;
+			reflected.z /= mag;
+
+			draw_pixel(
+				s, x, y, z,
+				rgb(
+					(uint8_t) (
+						(start_color >> 24) + coef0 *
+						(
+							1. * (end_color >> 24) -
+							(start_color >> 24)
+							)
+						),
+					(uint8_t) (
+						(start_color << 8 >> 24) + coef0 *
+						(
+							1. * (end_color << 8 >> 24) -
+							(start_color << 8 >> 24)
+							)
+						),
+					(uint8_t) (
+						(start_color << 16 >> 24) + coef0 *
+						(
+							1. * (end_color << 16 >> 24) -
+							(start_color << 16 >> 24)
+							)
+						)
+					),
+				start_shine + coef0 * (end_shine - start_shine),
+				amb_color, light_color,
+				point_to_source, normal, point_to_eye, reflected,
+				amb_ref_constant, diff_ref_constant, spec_ref_constant
+				);
 		}
 	}
 }
 
-void draw_line_perspective(screen s, vertex v0, vertex v1) {
-	if (v0.z < 0 && v1.z < 0) {
-		draw_line(s, v0.x, v0.y, v0.color, v1.x, v1.y, v1.color);
-		return;
-	}
+char left_of(vertex in_question, vertex v0, vertex v1) {
+	return (in_question.x - v0.x) * (v1.y - v0.y) -
+	(in_question.y - v0.y) * (v1.x - v0.x) > 0;
+}
 
-	if (v0.z >= 0 && v1.z >= 0) {
-		return;
-	}
+void scanline_fill(
+	screen s, vertex min, vertex mid, vertex max,
+	uint32_t amb_color, uint32_t light_color, vector light_source, vector eye,
+	double amb_ref_constant, double diff_ref_constant, double spec_ref_constant,
+	char perspective
+	) {
+	int32_t start_y = (int32_t) min.y,
+	end_y0 = (int32_t) mid.y, end_y1 = (int32_t) max.y;
 
-	if (v0.z >= 0) {
-		double factor = -v1.z / (v0.z - v1.z) * 0.99999999;
-		// multiply by 0.99999999 to avoid making the new v0.z being 0
-		draw_line(
-			s,
-			factor * v0.x + (1 - factor) * v1.x,
-			factor * v0.y + (1 - factor) * v1.y, v0.color,
-			v1.x, v1.y, v1.color
+	if (
+		(mid.x - min.x) * (max.y - min.y) -
+		(mid.y - min.y) * (max.x - min.x) < 0
+		) {
+		scanline_fill_half(
+			s, start_y, end_y0, min, mid, min, max,
+			amb_color, light_color, light_source, eye,
+			amb_ref_constant, diff_ref_constant, spec_ref_constant, perspective
+			);
+		scanline_fill_half(
+			s, end_y0, end_y1, mid, max, min, max,
+			amb_color, light_color, light_source, eye,
+			amb_ref_constant, diff_ref_constant, spec_ref_constant, perspective
 			);
 	}
-
 	else {
-		double factor = -v0.z / (v1.z - v0.z) * 0.99999999;
-		// multiply by 0.99999999 to avoid making the new v1.z being 0
-		draw_line(
-			s,
-			v0.x, v0.y, v0.color,
-			(1 - factor) * v0.x + factor * v1.x,
-			(1 - factor) * v0.y + factor * v1.y, v1.color
+		scanline_fill_half(
+			s, start_y, end_y0, min, max, min, mid,
+			amb_color, light_color, light_source, eye,
+			amb_ref_constant, diff_ref_constant, spec_ref_constant, perspective
+			);
+		scanline_fill_half(
+			s, end_y0, end_y1, min, max, mid, max,
+			amb_color, light_color, light_source, eye,
+			amb_ref_constant, diff_ref_constant, spec_ref_constant, perspective
 			);
 	}
 }
@@ -280,17 +531,58 @@ char is_front_face(vertex v0, vertex v1, vertex v2) {
 	return a_x * b_y - a_y * b_x > 0;
 }
 
+vertex min_vertex(vertex v0, vertex v1, vertex v2) {
+	vertex result = v0;
+	if (v1.y < result.y) {
+		result = v1;
+	}
+	if (v2.y < result.y) {
+		result = v2;
+	}
+	return result;
+}
+
+vertex max_vertex(vertex v0, vertex v1, vertex v2) {
+	vertex result = v0;
+	if (v1.y > result.y) {
+		result = v1;
+	}
+	if (v2.y > result.y) {
+		result = v2;
+	}
+	return result;
+}
+
+vertex mid_vertex(vertex min, vertex max, vertex v0, vertex v1, vertex v2) {
+	if (
+		(v0.x != min.x || v0.y != min.y || v0.z != min.z) &&
+		(v0.x != max.x || v0.y != max.y || v0.z != max.z)
+		) {
+		return v0;
+	}
+	if (
+		(v1.x != min.x || v1.y != min.y || v1.z != min.z) &&
+		(v1.x != max.x || v1.y != max.y || v1.z != max.z)
+		) {
+		return v1;
+	}
+	return v2;
+}
+
 void draw_faces(
 	screen s, vertex_list vlist, face_list flist,
-	vector center, vector eye, double distance
+	vector center, vector eye, double distance,
+	uint32_t amb_color, uint32_t light_color, vector light_source,
+	double amb_ref_constant, double diff_ref_constant, double spec_ref_constant
 	) {
 	size_t num_faces = flist->size;
 	face *faces = flist->list;
 	matrix display = display_matrix(center, eye);
 	vertex *vertices = transformed_vertices(vlist, display);
+	light_source = transformed_vector(light_source, display);
 	free(display);
 	face f;
-	vertex v0, v1, v2;
+	vertex v0, v1, v2, min, max;
 	if (distance) {
 		int num_vertices = vlist->size, cur_vertex = 0;
 		double depths[num_vertices], scale_factor;
@@ -311,9 +603,15 @@ void draw_faces(
 			f = *faces++;
 			v0 = vertices[f.v0]; v1 = vertices[f.v1]; v2 = vertices[f.v2];
 			if (is_front_face(v0, v1, v2)) {
-				draw_line_perspective(s, v0, v1);
-				draw_line_perspective(s, v1, v2);
-				draw_line_perspective(s, v2, v0);
+				min = min_vertex(v0, v1, v2);
+				max = max_vertex(v0, v1, v2);
+
+				scanline_fill(
+					s, min, mid_vertex(min, max, v0, v1, v2), max,
+					amb_color, light_color, light_source, eye,
+					amb_ref_constant, diff_ref_constant, spec_ref_constant,
+					PERSPECTIVE_ON
+					);
 			}
 		}
 	}
@@ -322,9 +620,14 @@ void draw_faces(
 			f = *faces++;
 			v0 = vertices[f.v0]; v1 = vertices[f.v1]; v2 = vertices[f.v2];
 			if (is_front_face(v0, v1, v2)) {
-				draw_line(s, v0.x, v0.y, v0.color, v1.x, v1.y, v1.color);
-				draw_line(s, v1.x, v1.y, v1.color, v2.x, v2.y, v2.color);
-				draw_line(s, v2.x, v2.y, v2.color, v0.x, v0.y, v0.color);
+				min = min_vertex(v0, v1, v2);
+				max = max_vertex(v0, v1, v2);
+				scanline_fill(
+					s, min, mid_vertex(min, max, v0, v1, v2), max,
+					amb_color, light_color, light_source, eye,
+					amb_ref_constant, diff_ref_constant, spec_ref_constant,
+					PERSPECTIVE_OFF
+					);
 			}
 		}
 	}
@@ -332,81 +635,159 @@ void draw_faces(
 }
 
 void add_box(
-	vertex_list vlist, face_list flist,
+	vertex_list vlist, edge_list elist, face_list flist,
 	double x, double y, double z,
 	double w, double h, double d,
-	uint32_t color
+	vertex text0, vertex text1
 	) {
 	size_t first_index = vlist->size;
 
 	double x2 = x + w, y2 = y - h, z2 = z - d;
-	add_vertex(vlist, x , y , z , color);
-	add_vertex(vlist, x , y2, z , color);
-	add_vertex(vlist, x , y2, z2, color);
-	add_vertex(vlist, x , y , z2, color);
-	add_vertex(vlist, x2, y , z , color);
-	add_vertex(vlist, x2, y2, z , color);
-	add_vertex(vlist, x2, y2, z2, color);
-	add_vertex(vlist, x2, y , z2, color);
 
-	// planes perpendicular to x = constant
-	add_face(flist, first_index    , first_index + 5, first_index + 4);
-	add_face(flist, first_index    , first_index + 1, first_index + 5);
-	add_face(flist, first_index + 3, first_index + 1, first_index    );
-	add_face(flist, first_index + 3, first_index + 2, first_index + 1);
-	add_face(flist, first_index + 7, first_index + 2, first_index + 3);
-	add_face(flist, first_index + 7, first_index + 6, first_index + 2);
-	add_face(flist, first_index + 4, first_index + 6, first_index + 7);
-	add_face(flist, first_index + 4, first_index + 5, first_index + 6);
+	add_vertex(vlist, x , y , z ,  0,  0,  1, text0, text1);
+	add_vertex(vlist, x , y2, z ,  0,  0,  1, text0, text1);
+	add_vertex(vlist, x2, y2, z ,  0,  0,  1, text0, text1);
+	add_vertex(vlist, x2, y , z ,  0,  0,  1, text0, text1);
 
-	// planes parallel to x = constant
-	add_face(flist, first_index    , first_index + 7, first_index + 3);
-	add_face(flist, first_index    , first_index + 4, first_index + 7);
-	add_face(flist, first_index + 2, first_index + 5, first_index + 1);
-	add_face(flist, first_index + 2, first_index + 6, first_index + 5);
+	add_vertex(vlist, x2, y , z ,  1,  0,  0, text0, text1);
+	add_vertex(vlist, x2, y2, z ,  1,  0,  0, text0, text1);
+	add_vertex(vlist, x2, y2, z2,  1,  0,  0, text0, text1);
+	add_vertex(vlist, x2, y , z2,  1,  0,  0, text0, text1);
+
+	add_vertex(vlist, x2, y , z2,  0,  0, -1, text0, text1);
+	add_vertex(vlist, x2, y2, z2,  0,  0, -1, text0, text1);
+	add_vertex(vlist, x , y2, z2,  0,  0, -1, text0, text1);
+	add_vertex(vlist, x , y , z2,  0,  0, -1, text0, text1);
+
+	add_vertex(vlist, x , y , z2, -1,  0,  0, text0, text1);
+	add_vertex(vlist, x , y2, z2, -1,  0,  0, text0, text1);
+	add_vertex(vlist, x , y2, z , -1,  0,  0, text0, text1);
+	add_vertex(vlist, x , y , z , -1,  0,  0, text0, text1);
+
+	add_vertex(vlist, x , y , z ,  0,  1,  0, text0, text1);
+	add_vertex(vlist, x2, y , z ,  0,  1,  0, text0, text1);
+	add_vertex(vlist, x2, y , z2,  0,  1,  0, text0, text1);
+	add_vertex(vlist, x , y , z2,  0,  1,  0, text0, text1);
+
+	add_vertex(vlist, x , y2, z2,  0, -1,  0, text0, text1);
+	add_vertex(vlist, x2, y2, z2,  0, -1,  0, text0, text1);
+	add_vertex(vlist, x2, y2, z ,  0, -1,  0, text0, text1);
+	add_vertex(vlist, x , y2, z ,  0, -1,  0, text0, text1);
+
+	add_edge(elist, first_index     , first_index +  1);
+	add_edge(elist, first_index +  1, first_index +  2);
+	add_edge(elist, first_index +  2, first_index +  3);
+	add_edge(elist, first_index +  3, first_index     );
+
+	add_edge(elist, first_index +  4, first_index +  5);
+	add_edge(elist, first_index +  5, first_index +  6);
+	add_edge(elist, first_index +  6, first_index +  7);
+	add_edge(elist, first_index +  7, first_index +  4);
+
+	add_edge(elist, first_index +  8, first_index +  9);
+	add_edge(elist, first_index +  9, first_index + 10);
+	add_edge(elist, first_index + 10, first_index + 11);
+	add_edge(elist, first_index + 11, first_index +  8);
+
+	add_edge(elist, first_index + 12, first_index + 13);
+	add_edge(elist, first_index + 13, first_index + 14);
+	add_edge(elist, first_index + 14, first_index + 15);
+	add_edge(elist, first_index + 15, first_index + 12);
+
+	add_edge(elist, first_index + 16, first_index + 17);
+	add_edge(elist, first_index + 17, first_index + 18);
+	add_edge(elist, first_index + 18, first_index + 19);
+	add_edge(elist, first_index + 19, first_index + 16);
+
+	add_edge(elist, first_index + 20, first_index + 21);
+	add_edge(elist, first_index + 21, first_index + 22);
+	add_edge(elist, first_index + 22, first_index + 23);
+	add_edge(elist, first_index + 23, first_index + 20);
+
+	add_face(flist, first_index     , first_index +  1, first_index +  2);
+	add_face(flist, first_index +  2, first_index +  3, first_index     );
+
+	add_face(flist, first_index +  4, first_index +  5, first_index +  6);
+	add_face(flist, first_index +  6, first_index +  7, first_index +  4);
+
+	add_face(flist, first_index +  8, first_index +  9, first_index + 10);
+	add_face(flist, first_index + 10, first_index + 11, first_index +  8);
+
+	add_face(flist, first_index + 12, first_index + 13, first_index + 14);
+	add_face(flist, first_index + 14, first_index + 15, first_index + 12);
+
+	add_face(flist, first_index + 16, first_index + 17, first_index + 18);
+	add_face(flist, first_index + 18, first_index + 19, first_index + 16);
+
+	add_face(flist, first_index + 20, first_index + 21, first_index + 22);
+	add_face(flist, first_index + 22, first_index + 23, first_index + 20);
 }
 
 void add_sphere(
-	vertex_list vlist, face_list flist,
+	vertex_list vlist, edge_list elist, face_list flist,
 	double cx, double cy, double cz,
-	double r, int steps, uint32_t color
+	double r, int steps, vertex text0, vertex text1
 	) {
 	size_t first_index = vlist->size;
-	add_vertex(vlist, cx, cy, cz + r, color);
+	add_vertex(vlist, cx, cy, cz + r, 0, 0, 1, text0, text1);
 
-	int step_count, half_step_count;
-	int half_steps = steps / 2;
-	double phi = 0.0, phi_inc = M_PI / half_steps;
-	double theta, theta_inc = 2 * M_PI / steps;
-	double pre_xy, z;
+	int step_count, half_step_count,
+	half_steps = steps / 2;
+	double phi = 0.0, phi_inc = M_PI / half_steps,
+	theta, theta_inc = 2 * M_PI / steps,
+	sin_phi, cos_phi, sin_theta, cos_theta, pre_xy, z;
 	for (half_step_count = 1; half_step_count < half_steps; half_step_count++) {
 		phi += phi_inc;
-		pre_xy = r * sin(phi);
-		z = cz + r * cos(phi);
-		add_vertex(vlist, cx + pre_xy, cy, z, color);
+		sin_phi = sin(phi);
+		cos_phi = cos(phi);
+		pre_xy = r * sin_phi;
+		z = cz + r * cos_phi;
+		add_vertex(
+			vlist, cx + pre_xy, cy, z, sin_phi, 0, cos_phi, text0, text1
+			);
 		theta = 0;
 		for (step_count = 1; step_count < steps; step_count++) {
 			theta += theta_inc;
+			sin_theta = sin(theta);
+			cos_theta = cos(theta);
 			add_vertex(
 				vlist,
-				cx + pre_xy * cos(theta), cy + pre_xy * sin(theta), z, color
+				cx + pre_xy * cos_theta, cy + pre_xy * sin_theta, z,
+				sin_phi * cos_theta, sin_phi * sin_theta, cos_phi, text0, text1
 				);
 		}
 	}
 
-	add_vertex(vlist, cx, cy, cz - r, color);
+	add_vertex(vlist, cx, cy, cz - r, 0, 0, -1, text0, text1);
 
 	for (step_count = 1; step_count < steps; step_count++) {
+		add_edge(elist, first_index, first_index + step_count);
 		add_face(
 			flist,
 			first_index, first_index + step_count, first_index + step_count + 1
 			);
 	}
+	add_edge(elist, first_index, first_index + step_count);
 	add_face(flist, first_index, first_index + step_count, first_index + 1);
 
 	half_steps -= 2;
 	for (half_step_count = 0; half_step_count < half_steps; half_step_count++) {
 		for (step_count = 1; step_count < steps; step_count++) {
+			add_edge(
+				elist,
+				first_index + half_step_count * steps + step_count,
+				first_index + half_step_count * steps + steps + step_count
+				);
+			add_edge(
+				elist,
+				first_index + half_step_count * steps + step_count,
+				first_index + half_step_count * steps + step_count + 1
+				);
+			add_edge(
+				elist,
+				first_index + half_step_count * steps + step_count,
+				first_index + half_step_count * steps + steps + step_count + 1
+				);
 			add_face(
 				flist,
 				first_index + half_step_count * steps + step_count,
@@ -420,6 +801,21 @@ void add_sphere(
 				first_index + half_step_count * steps + step_count + 1
 				);
 		}
+		add_edge(
+			elist,
+			first_index + half_step_count * steps + step_count,
+			first_index + half_step_count * steps + steps + step_count
+			);
+		add_edge(
+			elist,
+			first_index + half_step_count * steps + step_count,
+			first_index + half_step_count * steps + 1
+			);
+		add_edge(
+			elist,
+			first_index + half_step_count * steps + step_count,
+			first_index + half_step_count * steps + steps + 1
+			);
 		add_face(
 			flist,
 			first_index + half_step_count * steps + step_count,
@@ -435,6 +831,16 @@ void add_sphere(
 	}
 
 	for (step_count = 1; step_count < steps; step_count++) {
+		add_edge(
+			elist,
+			first_index + half_step_count * steps + step_count,
+			first_index + half_step_count * steps + steps + 1
+			);
+		add_edge(
+			elist,
+			first_index + half_step_count * steps + step_count,
+			first_index + half_step_count * steps + step_count + 1
+			);
 		add_face(
 			flist,
 			first_index + half_step_count * steps + step_count,
@@ -442,6 +848,16 @@ void add_sphere(
 			first_index + half_step_count * steps + step_count + 1
 			);
 	}
+	add_edge(
+		elist,
+		first_index + half_step_count * steps + step_count,
+		first_index + half_step_count * steps + steps + 1
+		);
+	add_edge(
+		elist,
+		first_index + half_step_count * steps + step_count,
+		first_index + half_step_count * steps + 1
+		);
 	add_face(
 		flist,
 		first_index + half_step_count * steps + step_count,
@@ -450,85 +866,8 @@ void add_sphere(
 		);
 }
 
-void draw_edges(
-	screen s, vertex_list vlist, edge_list elist,
-	vector center, vector eye, double distance
-	) {
-	size_t num_edges = elist->size;
-	edge *edges = elist->list;
-	matrix display = display_matrix(center, eye);
-	vertex *vertices = transformed_vertices(vlist, display);
-	free(display);
-	edge e;
-	vertex v0, v1;
-	if (distance) {
-		distance *= -1;
-		while (num_edges--) {
-			e = *edges++;
-			v0 = vertices[e.v0]; v1 = vertices[e.v1];
-			v0.x *= distance / v0.z; v0.y *= distance / v0.z;
-			v1.x *= distance / v1.z; v1.y *= distance / v1.z;
-			draw_line_perspective(s, v0, v1);
-		}
-	}
-	else {
-		while (num_edges--) {
-			e = *edges++;
-			v0 = vertices[e.v0]; v1 = vertices[e.v1];
-			draw_line(s, v0.x, v0.y, v0.color, v1.x, v1.y, v1.color);
-		}
-	}
-	free(vertices);
-}
-
-void add_line(
-	vertex_list vlist, edge_list elist,
-	double x0, double y0, double z0, double x1, double y1, double z1,
-	uint32_t color
-	) {
-	size_t first_index = elist->size;
-
-	add_vertex(vlist, x0, y0, z0, color);
-	add_vertex(vlist, x1, y1, z1, color);
-
-	add_edge(elist, first_index, first_index + 1);
-}
-
-/*
-point_matrix make_point_matrix(size_t capacity) {
-	point_matrix pm = (point_matrix) malloc(sizeof(struct point_matrix_struct));
-	if (pm == NULL) {
-		perror("Point Matrix error (malloc)");
-		exit(EXIT_FAILURE);
-	}
-	pm->size = 0;
-	pm->points = make_matrix(4, capacity);
-	pm->colors = (uint32_t *) malloc(capacity * sizeof(uint32_t));
-	if (pm->colors == NULL) {
-		perror("Point Matrix error (malloc)");
-		exit(EXIT_FAILURE);
-	}
-	return pm;
-}
-
-void clear_point_matrix(point_matrix pm) {
-	size_t capacity = pm->points->cols;
-	free(pm->points);
-	free(pm->colors);
-	pm->size = 0;
-	pm->points = make_matrix(4, capacity);
-	pm->colors = (uint32_t *) malloc(capacity * sizeof(uint32_t));
-	if (pm->colors == NULL) {
-		perror("Point Matrix error (malloc)");
-		exit(EXIT_FAILURE);
-	}
-}
-
 void draw_line(
-	screen s,
-	int32_t x0, int32_t y0,
-	int32_t x1, int32_t y1,
-	uint32_t color
+	screen s, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color
 	) {
 	int32_t dx = abs(x1 - x0);
 	int32_t dy = abs(y1 - y0);
@@ -538,9 +877,8 @@ void draw_line(
 
 	int32_t error = (dx > dy ? dx : -dy) / 2;
 	int32_t original_error;
-
 	while (1) {
-		plot(s, x0, y0, color);
+		plot(s, x0, y0, 1, color);
 		if (x0 == x1 && y0 == y1) {
 			return;
 		}
@@ -556,53 +894,78 @@ void draw_line(
 	}
 }
 
-void draw_lines(point_matrix pm, screen s) {
-	size_t size = pm->size;
-	if (size % 2 == 1) {
-		fprintf(
-			stderr,
-			"Draw Lines error: point matrix has unpaired point\n"
-			);
-		exit(EXIT_FAILURE);
-	}
-	size_t capacity = pm->points->cols;
-	double *data = pm->points->data;
-	uint32_t *colors = pm->colors;
-	size_t counter = 0;
-	while (counter < size) {
-		draw_line(
-			s,
-			(int32_t)(data[counter] + 0.5),
-			(int32_t)(data[capacity + counter] + 0.5),
-			(int32_t)(data[counter + 1] + 0.5),
-			(int32_t)(data[capacity + counter + 1] + 0.5),
-			colors[counter]
-			);
-		counter += 2;
-	}
-}
+void draw_edges(
+	screen s, vertex_list vlist, edge_list elist,
+	vector center, vector eye, double distance, uint32_t color
+	) {
+	size_t num_edges = elist->size;
+	edge *edges = elist->list;
+	matrix display = display_matrix(center, eye);
+	vertex *vertices = transformed_vertices(vlist, display);
+	free(display);
+	edge e;
+	vertex v0, v1;
+	double factor;
+	if (distance) {
+		distance *= -1;
+		while (num_edges--) {
+			e = *edges++;
+			v0 = vertices[e.v0]; v1 = vertices[e.v1];
+			v0.x *= distance / v0.z; v0.y *= distance / v0.z;
+			v1.x *= distance / v1.z; v1.y *= distance / v1.z;
+			if (v0.z < 0 && v1.z < 0) {
+				draw_line(s, v0.x, v0.y, v1.x, v1.y, color);
+			}
+			else if (v0.z >= 0 && v1.z >= 0) {
+				continue;
+			}
+			else if (v0.z >= 0) {
+				factor = -v1.z / (v0.z - v1.z);
+				draw_line(
+					s,
+					factor * v0.x + (1 - factor) * v1.x,
+					factor * v0.y + (1 - factor) * v1.y,
+					v1.x, v1.y,
+					color
+					);
+			}
 
-void add_point(point_matrix pm, double x, double y, double z) {
-	size_t size = pm->size;
-	size_t capacity = pm->points->cols;
-	if (size == capacity) {
-		expand_matrix(pm->points);
-		capacity = pm->points->cols;
-		pm->colors =
-		(uint32_t *) realloc(pm->colors, capacity * sizeof(uint32_t));
-		if (pm->colors == NULL) {
-			perror("Point Matrix error (realloc)");
-			exit(EXIT_FAILURE);
+			else {
+				factor = -v0.z / (v1.z - v0.z);
+				draw_line(
+					s,
+					v0.x, v0.y,
+					(1 - factor) * v0.x + factor * v1.x,
+					(1 - factor) * v0.y + factor * v1.y,
+					color
+					);
+			}
 		}
 	}
-	double *data = pm->points->data;
-	data[size] = x;
-	data[capacity + size] = y;
-	data[2 * capacity + size] = z;
-	data[3 * capacity + size] = 1;
-	pm->size = size + 1;
+	else {
+		while (num_edges--) {
+			e = *edges++;
+			v0 = vertices[e.v0]; v1 = vertices[e.v1];
+			draw_line(s, v0.x, v0.y, v1.x, v1.y, color);
+		}
+	}
+	free(vertices);
 }
 
+void add_line(
+	vertex_list vlist, edge_list elist,
+	double x0, double y0, double z0, double x1, double y1, double z1,
+	vertex text0, vertex text1
+	) {
+	size_t first_index = elist->size;
+
+	add_vertex(vlist, x0, y0, z0, 0, 0, 1, text0, text1);
+	add_vertex(vlist, x1, y1, z1, 0, 0, 1, text0, text1);
+
+	add_edge(elist, first_index, first_index + 1);
+}
+
+/*
 void add_edge(
 	point_matrix pm,
 	double x0, double y0, double z0,
@@ -691,104 +1054,6 @@ void add_curve(
 	p2x = a_x + b_x + c_x + d_x;
 	p2y = a_y + b_y + c_y + d_y;
 	add_edge(pm, p1x, p1y, 0, p2x, p2y, 0, color);
-}
-
-void add_box(
-	point_matrix pm,
-	double x, double y, double z,
-	double w, double h, double d,
-	uint32_t color
-	) {
-	double x2 = x + w, y2 = y + h, z2 = z + d;
-	add_edge(pm, x, y, z, x2, y, z, color);
-	add_edge(pm, x, y, z, x, y2, z, color);
-	add_edge(pm, x, y, z, x, y, z2, color);
-	add_edge(pm, x2, y, z, x2, y2, z, color);
-	add_edge(pm, x2, y, z, x2, y, z2, color);
-	add_edge(pm, x, y2, z, x2, y2, z, color);
-	add_edge(pm, x, y2, z, x, y2, z2, color);
-	add_edge(pm, x, y, z2, x2, y, z2, color);
-	add_edge(pm, x, y, z2, x, y2, z2, color);
-	add_edge(pm, x2, y2, z, x2, y2, z2, color);
-	add_edge(pm, x2, y, z2, x2, y2, z2, color);
-	add_edge(pm, x, y2, z2, x2, y2, z2, color);
-}
-
-void add_sphere(
-	point_matrix pm,
-	double cx, double cy, double cz,
-	double r, int steps, uint32_t color
-	) {
-	int half_steps = steps / 2;
-	double phi = 0.0, phi_inc = M_PI / half_steps;
-	double theta, theta_inc = 2 * M_PI / steps;
-	double pre_xy1, pre_xy2;
-	double x1 = cx, y1 = cy, z1 = cz + r, x2, y2, z2, x3, y3, z3;
-	int step_count, half_step_count;
-
-	phi += phi_inc;
-	pre_xy2 = r * sin(phi);
-	x2 = cx + pre_xy2;
-	y2 = cy;
-	z2 = z3 = cz + r * cos(phi);
-	theta = 0;
-	for (step_count = 1; step_count < steps; step_count++) {
-		theta += theta_inc;
-		x3 = cx + pre_xy2 * cos(theta);
-		y3 = cy + pre_xy2 * sin(theta);
-		add_edge(pm, x1, y1, z1, x3, y3, z3, color);
-		add_edge(pm, x2, y2, z2, x3, y3, z3, color);
-		x2 = x3;
-		y2 = y3;
-	}
-	x3 = cx + pre_xy2;
-	y3 = cy;
-	add_edge(pm, x1, y1, z1, x3, y3, z3, color);
-	add_edge(pm, x2, y2, z2, x3, y3, z3, color);
-
-	for (half_step_count = 2; half_step_count < half_steps; half_step_count++) {
-		pre_xy1 = pre_xy2;
-		z1 = z3;
-		phi += phi_inc;
-		pre_xy2 = r * sin(phi);
-		x2 = cx + pre_xy2;
-		y2 = cy;
-		z2 = z3 = cz + r * cos(phi);
-		theta = 0;
-		for (step_count = 1; step_count < steps; step_count++) {
-			theta += theta_inc;
-			x1 = cx + pre_xy1 * cos(theta);
-			y1 = cy + pre_xy1 * sin(theta);
-			x3 = cx + pre_xy2 * cos(theta);
-			y3 = cy + pre_xy2 * sin(theta);
-			add_edge(pm, x1, y1, z1, x3, y3, z3, color);
-			add_edge(pm, x2, y2, z2, x3, y3, z3, color);
-			x2 = x3;
-			y2 = y3;
-		}
-		x1 = cx + pre_xy1;
-		y1 = cy;
-		x3 = cx + pre_xy2;
-		y3 = cy;
-		add_edge(pm, x1, y1, z1, x3, y3, z3, color);
-		add_edge(pm, x2, y2, z2, x3, y3, z3, color);
-	}
-
-	pre_xy1 = pre_xy2;
-	z1 = z3;
-	x3 = cx;
-	y3 = cy;
-	z3 = cz - r;
-	theta = 0;
-	for (step_count = 1; step_count < steps; step_count++) {
-		theta += theta_inc;
-		x1 = cx + pre_xy1 * cos(theta);
-		y1 = cy + pre_xy1 * sin(theta);
-		add_edge(pm, x1, y1, z1, x3, y3, z3, color);
-	}
-	x1 = cx + pre_xy1;
-	y1 = cy;
-	add_edge(pm, x1, y1, z1, x3, y3, z3, color);
 }
 
 void add_torus(

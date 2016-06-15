@@ -3,10 +3,24 @@
 #include "matrix.h"
 #include "screen.h"
 
+#define max(a, b) \
+({ __typeof__ (a) _a = (a); \
+	__typeof__ (b) _b = (b); \
+	_a > _b ? _a : _b; })
+
+#define min(a, b) \
+({ __typeof__ (a) _a = (a); \
+	__typeof__ (b) _b = (b); \
+	_a < _b ? _a : _b; })
+
 typedef struct vertex_struct {
 	double x;
 	double y;
 	double z;
+	double nx;
+	double ny;
+	double nz;
+	double shine;
 	uint32_t color;
 } vertex;
 
@@ -39,8 +53,8 @@ typedef struct edge_list_struct {
 	edge *list;
 } *edge_list;
 
-#define PERSPECTIVE_ON 1;
-#define PERSPECTIVE_OFF 0;
+#define PERSPECTIVE_ON 1
+#define PERSPECTIVE_OFF 0
 
 vertex_list new_vlist(size_t max_num_vertices);
 
@@ -64,30 +78,32 @@ void clear_elist(edge_list elist);
 
 void draw_faces(
 	screen s, vertex_list vlist, face_list flist,
-	vector center, vector eye, double distance
+	vector center, vector eye, double distance,
+	uint32_t amb_color, uint32_t light_color, vector light_source,
+	double amb_ref_constant, double diff_ref_constant, double spec_ref_constant
 	);
 
 void add_box(
-	vertex_list vlist, face_list flist,
+	vertex_list vlist, edge_list elist, face_list flist,
 	double x, double y, double z,
 	double w, double h, double d,
-	uint32_t color
+	vertex text0, vertex text1
 	);
 
 void add_sphere(
-	vertex_list vlist, face_list flist,
+	vertex_list vlist, edge_list elist, face_list flist,
 	double cx, double cy, double cz,
-	double r, int steps, uint32_t color
+	double r, int steps, vertex text0, vertex text1
 	);
 
 void draw_edges(
 	screen s, vertex_list vlist, edge_list elist,
-	vector center, vector eye, double distance
+	vector center, vector eye, double distance, uint32_t color
 	);
 
 void add_line(
 	vertex_list vlist, edge_list elist,
 	double x0, double y0, double z0, double x1, double y1, double z1,
-	uint32_t color
+	vertex text0, vertex text1
 	);
 #endif

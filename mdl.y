@@ -45,23 +45,16 @@ input:
 command:
 COMMENT {}|
 
-LIGHT STRING DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE
+LIGHT DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE
 {
 	lineno++;
-	l = (struct light *)malloc(sizeof(struct light));
-	l->l[0]= $3;
-	l->l[1]= $4;
-	l->l[2]= $5;
-	l->l[3]= 0;
-	l->c[0]= $6;
-	l->c[1]= $7;
-	l->c[2]= $8;
 	op[lastop].opcode=LIGHT;
-	op[lastop].op.light.c[0] = $6;
-	op[lastop].op.light.c[1] = $7;
-	op[lastop].op.light.c[2] = $8;
-	op[lastop].op.light.c[3] = 0;
-	op[lastop].op.light.p = add_symbol($2,SYM_LIGHT,l);
+	op[lastop].op.light.l[0] = $2;
+	op[lastop].op.light.l[1] = $3;
+	op[lastop].op.light.l[2] = $4;
+	op[lastop].op.light.c[0] = $5;
+	op[lastop].op.light.c[1] = $6;
+	op[lastop].op.light.c[2] = $7;
 	lastop++;
 }|
 
@@ -167,26 +160,27 @@ CAMERA DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE
 	op[lastop].op.camera.aim[3] = 0;
 	lastop++;
 }|
-TEXTURE STRING DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE
+TEXTURE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE
 {
 	lineno++;
 	op[lastop].opcode = TEXTURE;
-	c = (struct constants *)malloc(sizeof(struct constants));
-	op[lastop].op.texture.d0[0] = $3;
-	op[lastop].op.texture.d0[1] = $4;
-	op[lastop].op.texture.d0[2] = $5;
-	op[lastop].op.texture.d1[0] = $6;
-	op[lastop].op.texture.d1[1] = $7;
-	op[lastop].op.texture.d1[2] = $8;
-	op[lastop].op.texture.d2[0] = $9;
-	op[lastop].op.texture.d2[1] = $10;
-	op[lastop].op.texture.d2[2] = $11;
+	op[lastop].op.texture.d0[0] = $2;
+	op[lastop].op.texture.d0[1] = $3;
+	op[lastop].op.texture.d0[2] = $4;
+	op[lastop].op.texture.d1[0] = $5;
+	op[lastop].op.texture.d1[1] = $6;
+	op[lastop].op.texture.d1[2] = $7;
+	op[lastop].op.texture.d2[0] = $8;
+	op[lastop].op.texture.d2[1] = $9;
+	op[lastop].op.texture.d2[2] = $10;
+	op[lastop].op.texture.d2[3] = $11;
 	op[lastop].op.texture.d3[0] = $12;
 	op[lastop].op.texture.d3[1] = $13;
 	op[lastop].op.texture.d3[2] = $14;
+	op[lastop].op.texture.d3[3] = $15;
 	op[lastop].op.texture.cs = NULL;
-	op[lastop].op.texture.constants =  add_symbol("",SYM_CONSTANTS,c);
-	op[lastop].op.texture.p = add_symbol($2,SYM_FILE,0);
+	op[lastop].op.texture.constants = NULL;
+	op[lastop].op.texture.p = NULL;
 	lastop++;
 }|
 SPHERE DOUBLE DOUBLE DOUBLE DOUBLE

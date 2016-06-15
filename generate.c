@@ -132,8 +132,8 @@ void generate( int polygons ) {
 	}
 
 	// Default values
-	char color_type = PNG_RGB, perspective = PERSPECTIVE_OFF;
-	int width = 1000, height = 1000, color = rgb(255, 255, 255), segments = 20;
+	char color_type = PNG_RGB, shading = GOROUD;
+	int width = 1000, height = 1000, segments = 20;
 	screen s = make_screen(width, height);
 	vertex_list vlist = new_vlist(100);
 	face_list flist = new_flist(100);
@@ -142,6 +142,21 @@ void generate( int polygons ) {
 	vector center = new_vector(0, 0, 0);
 	vector eye = new_vector(0, 0, 200);
 	double distance = 200;
+	vertex text0, text1;
+	text0.x = -100; text0.y = 0; text0.z = 0;
+	text1.x =  100; text1.y = 0; text1.z = 0;
+	text0.nx = text1.x - text0.x;
+	text0.ny = text1.y - text0.y;
+	text0.nz = text1.z - text0.z;
+	text1.nx = text0.nx * text0.nx + text0.ny * text0.ny + text0.nz * text0.nz;
+	text0.color = rgb(255, 255, 255);
+	text0.shine = 3;
+	text1.color = rgb(255, 0, 255);
+	text1.shine = 3;
+	uint32_t amb_color = rgb(255, 255, 255), light_color = rgb(0, 255, 255),
+	wire_color = rgb(255, 255, 255);
+	vector light_source = new_vector(0, 100, 200);
+	double amb_ref_constant = 0.1, diff_ref_constant = 1, spec_ref_constant = 1;
 
 	int frame, i, j; double temp;
 	for (frame = 0; frame < num_frames; frame++) {
@@ -152,34 +167,127 @@ void generate( int polygons ) {
 		}
 		for (i = 0; i < lastop; i++) {
 			switch (op[i].opcode) {
+				case TEXTURE:
+				text0.x = op[lastop].op.texture.d0[0];
+				text0.y = op[lastop].op.texture.d0[1];
+				text0.z = op[lastop].op.texture.d0[2];
+				text1.x = op[lastop].op.texture.d1[0];
+				text1.y = op[lastop].op.texture.d1[1];
+				text1.z = op[lastop].op.texture.d1[2];
+				text0.nx = text1.x - text0.x;
+				text0.ny = text1.y - text0.y;
+				text0.nz = text1.z - text0.z;
+				text1.nx =
+				text0.nx * text0.nx + text0.ny * text0.ny + text0.nz * text0.nz;
+				text0.color = rgb(
+					(uint8_t) max(0, min(0xFF, op[lastop].op.texture.d2[0])),
+					(uint8_t) max(0, min(0xFF, op[lastop].op.texture.d2[1])),
+					(uint8_t) max(0, min(0xFF, op[lastop].op.texture.d2[2]))
+ 					);
+				text0.shine = op[lastop].op.texture.d2[3];
+				text1.color = rgb(
+					(uint8_t) max(0, min(0xFF, op[lastop].op.texture.d3[0])),
+					(uint8_t) max(0, min(0xFF, op[lastop].op.texture.d3[1])),
+					(uint8_t) max(0, min(0xFF, op[lastop].op.texture.d3[2]))
+ 					);
+				text1.shine = op[lastop].op.texture.d3[3];
+				break;
+
+				case CAMERA:
+				eye.x = op[lastop].op.camera.eye[0];
+				eye.y = op[lastop].op.camera.eye[1];
+				eye.z = op[lastop].op.camera.eye[2];
+				center.x = eye.x + op[lastop].op.camera.aim[0];
+				center.y = eye.y + op[lastop].op.camera.aim[1];
+				center.z = eye.z + op[lastop].op.camera.aim[2];
+				break;
+
+				case FOCAL:
+				distance = op[lastop].op.focal.value;
+				break;
+
+				case AMBIENT:
+				amb_color = rgb(
+					(uint8_t) max(0, min(0xFF, op[lastop].op.ambient.c[0])),
+					(uint8_t) max(0, min(0xFF, op[lastop].op.ambient.c[1])),
+					(uint8_t) max(0, min(0xFF, op[lastop].op.ambient.c[2]))
+					);
+				break;
+
+				case LIGHT:
+				light_color = rgb(
+					(uint8_t) max(0, min(0xFF, op[lastop].op.light.c[0])),
+					(uint8_t) max(0, min(0xFF, op[lastop].op.light.c[1])),
+					(uint8_t) max(0, min(0xFF, op[lastop].op.light.c[2]))
+					);
+				light_source = new_vector(
+					op[lastop].op.light.l[0],
+					op[lastop].op.light.l[1],
+					op[lastop].op.light.l[2]
+					);
+				break;
+
+				case SHADING:
+				if (strcmp(op[i].op.shading.p->name, "GOROUD") == 0) {
+					shading = GOROUD;
+				}
+				else {
+					shading = WIRE;
+				}
+				break;
+
 				case SPHERE:
 				add_sphere(
-					vlist, flist,
+					vlist, elist, flist,
 					op[i].op.sphere.d[0],
 					op[i].op.sphere.d[1],
 					op[i].op.sphere.d[2],
-					op[i].op.sphere.r, segments, color
+					op[i].op.sphere.r, segments, text0, text1
 					);
 				transform(vlist, peek(coord_systems));
-				draw_faces(s, vlist, flist, center, eye, distance);
+				if (shading == GOROUD) {
+					draw_faces(
+						s, vlist, flist, center, eye, distance,
+						amb_color, light_color, light_source,
+						amb_ref_constant, diff_ref_constant, spec_ref_constant
+						);
+				}
+				else {
+					draw_edges(
+						s, vlist, elist, center, eye, distance, wire_color
+						);
+				}
 				clear_vlist(vlist);
+				clear_elist(elist);
 				clear_flist(flist);
 				break;
 
 				case BOX:
 				add_box(
-					vlist, flist,
+					vlist, elist, flist,
 					op[i].op.box.d0[0],
 					op[i].op.box.d0[1],
 					op[i].op.box.d0[2],
 					op[i].op.box.d1[0],
 					op[i].op.box.d1[1],
 					op[i].op.box.d1[2],
-					color
+					text0, text1
 					);
 				transform(vlist, peek(coord_systems));
-				draw_faces(s, vlist, flist, center, eye, distance);
+				if (shading == GOROUD) {
+					draw_faces(
+						s, vlist, flist, center, eye, distance,
+						amb_color, light_color, light_source,
+						amb_ref_constant, diff_ref_constant, spec_ref_constant
+						);
+				}
+				else {
+					draw_edges(
+						s, vlist, elist, center, eye, distance, wire_color
+						);
+				}
 				clear_vlist(vlist);
+				clear_elist(elist);
 				clear_flist(flist);
 				break;
 
@@ -192,10 +300,10 @@ void generate( int polygons ) {
 					op[i].op.line.p1[0],
 					op[i].op.line.p1[1],
 					op[i].op.line.p1[2],
-					color
+					text0, text1
 					);
 				transform(vlist, peek(coord_systems));
-				draw_edges(s, vlist, elist, center, eye, distance);
+				draw_edges(s, vlist, elist, center, eye, distance, wire_color);
 				clear_vlist(vlist);
 				clear_elist(elist);
 				break;
